@@ -276,6 +276,7 @@ Sculpt.prototype = {
     var cx = center[0],
       cy = center[1],
       cz = center[2];
+   var coord = [0.0,0.0,0.0];
     for (var i = 0; i < nbVerts; ++i)
     {
       var ind = iVerts[i] * 3;
@@ -283,8 +284,9 @@ Sculpt.prototype = {
         dy = vAr[ind + 1] - cy,
         dz = vAr[ind + 2] - cz;
       var dist = Math.sqrt(dx * dx + dy * dy + dz * dz) / radius;
-      var fallOff = 3 * dist * dist * dist * dist - 4 * dist * dist * dist + 1;
-      var coord = [vAr[ind], vAr[ind + 1], vAr[ind + 2]];
+      var distCub = dist * dist * dist;
+      var fallOff = 3 * dist * distCub - 4 * distCub + 1;
+      coord[0] = vAr[ind]; coord[1]  = vAr[ind + 1]; coord[2] = vAr[ind + 2];
       quat.setAxisAngle(rot, nPlane, angle * fallOff);
       vec3.sub(coord, coord, center);
       vec3.transformQuat(coord, coord, rot);

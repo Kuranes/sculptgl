@@ -89,7 +89,7 @@ Picking.prototype = {
   /** Find all the vertices inside the sphere */
   pickVerticesInSphere: function (rWorldSqr)
   {
-    this.pickedVertices_ = [];
+    this.pickedVertices_.length = 0;
     var vertices = this.mesh_.vertices_;
     var vAr = this.mesh_.vertexArray_;
     var leavesHit = this.mesh_.leavesUpdate_;

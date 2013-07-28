@@ -9,7 +9,7 @@ function State()
   this.iArState_ = []; //copies of indices
   this.vState_ = []; //copies of vertex topology
   this.tState_ = []; //copies of triangle topology
-  this.aabbState_ = new Aabb(); //root aabb
+  this.aabbState_ = AabbPool.get(); //root aabb
 }
 
 function States()
@@ -461,7 +461,10 @@ States.prototype = {
     for (var i = 0; i < nbTriangles; ++i)
       trianglesAll[i] = i;
     ++Triangle.tagMask_;
-    mesh.octree_ = new Octree();
+
+    if (mesh.octree_)
+      mesh.octree_.deInit();
+    mesh.octree_ = OctreePool.get().init();
     mesh.octree_.build(mesh, trianglesAll, aabbSplit);
   },
 

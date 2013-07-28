@@ -1,16 +1,30 @@
 'use strict';
 
+
 function Aabb()
 {
-  this.min_ = [0, 0, 0]; //min vertex
-  this.max_ = [0, 0, 0]; //max vertex
+  this.min_  = [0.0, 0.0, 0.0]; //min vertex
+  this.max_  = [0.0, 0.0, 0.0]; //max vertex
+  this.temp_ = [0.0, 0.0, 0.0]; //temp_ vertex
 }
 
 Aabb.prototype = {
+  /** constructor (pool init) */
+  init: function()
+  {
+    this.min_[0] = 0.0;this.min_[1] = 0.0;this.min_[2] = 0.0; //min vertex
+    this.max_[0] = 0.0;this.max_[1] = 0.0;this.max_[2] = 0.0; //max vertex
+    return this;
+  },
+  /** destructor (pool refill) */
+  deInit: function()
+  {
+    AabbPool.put(this);
+  },
   /** Clone aabb */
   clone: function ()
   {
-    var ab = new Aabb();
+    var ab = AabbPool.get();
     ab.min_ = this.min_.slice();
     ab.max_ = this.max_.slice();
     return ab;
@@ -49,8 +63,8 @@ Aabb.prototype = {
   /** Compute center */
   computeCenter: function ()
   {
-    var temp = [0, 0, 0];
-    return vec3.scale(temp, vec3.add(temp, this.min_, this.max_), 0.5);
+    this.temp_[0] = 0.0;this.temp_[1] = 0.0;this.temp_[2] = 0.0;
+    return vec3.scale(this.temp_, vec3.add(this.temp_, this.min_, this.max_), 0.5);
   },
 
   /** Collision detection */

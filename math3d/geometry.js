@@ -1,6 +1,10 @@
 'use strict';
 
 var Geometry = {};
+Geometry.tempVec4 = [0.0, 0.0, 0.0, 0.0];
+Geometry.tempVec4_1 = [0.0, 0.0, 0.0, 0.0];
+Geometry.tempVec4_2 = [0.0, 0.0, 0.0, 0.0];
+Geometry.tempVec4_3 = [0.0, 0.0, 0.0, 0.0];
 
 /** Normalize coordinate mouse between -1 and 1 */
 Geometry.normalizedMouse = function (mouseX, mouseY, width, height)
@@ -22,7 +26,8 @@ Geometry.mouseOnUnitSphere = function (mouseXY)
 /** Compute intersection vertex between a ray and a triangle. Returne false if it doesn't intersect. */
 Geometry.intersectionRayTriangle = function (s1, s2, v1, v2, v3, normal, vertInter)
 {
-  var temp = [0, 0, 0];
+  var temp = Geometry.tempVec4;//[0, 0, 0];
+  temp[0] = 0.0;temp[1] = 0.0;temp[2] = 0.0;
   vec3.sub(temp, s1, v1);
   var dist1 = vec3.dot(temp, normal);
   var dist2 = vec3.dot(vec3.sub(temp, s2, v1), normal);
@@ -53,7 +58,8 @@ Geometry.unproject = function (winx, winy, winz, view, proj, width, height)
   winx = (2 * winx / width) - 1;
   winy = (2 * winy / height) - 1;
   winz = (2 * winz) - 1;
-  var n = [winx, winy, winz, 1];
+  Geometry.tempVec4[0] = winx;Geometry.tempVec4[1] = winy;Geometry.tempVec4[2] = winz;Geometry.tempVec4[3] = 1.0;
+  var n = Geometry.tempVec4//[winx, winy, winz, 1];
   var mat = mat4.create();
   vec4.transformMat4(n, n, mat4.invert(mat, mat4.mul(mat, proj, view)));
   var w = n[3];
@@ -63,7 +69,8 @@ Geometry.unproject = function (winx, winy, winz, view, proj, width, height)
 /** Project */
 Geometry.project = function (objx, objy, objz, view, proj, width, height)
 {
-  var vec = [objx, objy, objz, 1];
+  Geometry.tempVec4[0] = objx;Geometry.tempVec4[1] = objy;Geometry.tempVec4[2] = objz;Geometry.tempVec4[3] = 1.0;
+  var vec = Geometry.tempVec4;//[objx, objy, objz, 1.0];
   vec4.transformMat4(vec, vec, view);
   vec4.transformMat4(vec, vec, proj);
   var w = vec[3];
@@ -129,13 +136,17 @@ Geometry.normal = function (normal, v1x, v1y, v1z, v2x, v2y, v2z, v3x, v3y, v3z)
 /** If point is inside the triangle, test the sum of the areas */
 Geometry.pointInsideTriangle = function (point, v1, v2, v3)
 {
-  var vec1 = [0, 0, 0];
+  var vec1 = Geometry.tempVec4;//[0, 0, 0];
+  vec1[0] = 0.0;vec1[1] = 0.0;vec1[2] = 0.0;
   vec3.sub(vec1, v1, v2);
-  var vec2 = [0, 0, 0];
+  var vec2 = Geometry.tempVec4_1;//[0, 0, 0];
+  vec2[0] = 0.0;vec2[1] = 0.0;vec2[2] = 0.0;
   vec3.sub(vec2, v1, v3);
-  var vecP1 = [0, 0, 0];
+  var vecP1 = Geometry.tempVec4_2;//[0, 0, 0];
+  vecP1[0] = 0.0;vecP1[1] = 0.0;vecP1[2] = 0.0;
   vec3.sub(vecP1, point, v2);
-  var vecP2 = [0, 0, 0];
+  var vecP2 = Geometry.tempVec4_3;//[0, 0, 0];
+  vecP2[0] = 0.0;vecP2[1] = 0.0;vecP2[2] = 0.0;
   vec3.sub(vecP2, point, v3);
   var temp = [0, 0, 0];
   var total = vec3.len(vec3.cross(temp, vec1, vec2));
@@ -160,9 +171,11 @@ Geometry.sphereIntersectTriangle = function (point, radiusSq, v1, v2, v3)
 /** Minimum distance to a segment */
 Geometry.distanceToSegment = function (point, v1, v2)
 {
-  var pt = [0, 0, 0];
+  var pt = Geometry.tempVec4;//[0, 0, 0];
+  pt[0] = 0.0;pt[1] = 0.0;pt[2] = 0.0;
   vec3.sub(pt, point, v1);
-  var v2v1 = [0, 0, 0];
+  var v2v1 = Geometry.tempVec4_1;//[0, 0, 0];
+  v2v1[0] = 0.0;v2v1[1] = 0.0;v2v1[2] = 0.0;
   vec3.sub(v2v1, v2, v1);
   var len = vec3.sqrLen(v2v1);
   var t = vec3.dot(pt, v2v1) / len;
@@ -188,11 +201,15 @@ Geometry.signedAngle2d = function (v1, v2)
 /** Distance from a vertex and a plane */
 Geometry.pointPlaneDistance = function (v, ptPlane, nPlane)
 {
-  return vec3.dot(vec3.sub([0, 0, 0], v, ptPlane), nPlane);
+  var temp = Geometry.tempVec4;//[0, 0, 0];
+  temp[0] = 0.0;temp[1] = 0.0;temp[2] = 0.0;
+  return vec3.dot(vec3.sub(temp, v, ptPlane), nPlane);
 };
 
 /** Mirror a vertex according to a plane */
 Geometry.mirrorPoint = function (v, ptPlane, nPlane)
 {
-  return vec3.sub(v, v, vec3.scale([0, 0, 0], nPlane, Geometry.pointPlaneDistance(v, ptPlane, nPlane) * 2));
+  var temp = Geometry.tempVec4;//[0, 0, 0];
+  temp[0] = 0.0;temp[1] = 0.0;temp[2] = 0.0;
+  return vec3.sub(v, v, vec3.scale(temp, nPlane, Geometry.pointPlaneDistance(v, ptPlane, nPlane) * 2));
 };

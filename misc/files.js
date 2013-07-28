@@ -50,7 +50,7 @@ Files.loadOBJ = function (data, mesh)
             v1.tIndices_.push(nbTriangles);
             v2.tIndices_.push(nbTriangles);
             v3.tIndices_.push(nbTriangles);
-            triangles.push(new Triangle(nbTriangles));
+            triangles.push(TrianglesPool.get().init(nbTriangles));
             iAr.push(iv1, iv2, iv3);
             //quad to triangle...
             if (split.length > 4)
@@ -64,7 +64,7 @@ Files.loadOBJ = function (data, mesh)
                 v1.tIndices_.push(nbTriangles);
                 v3.tIndices_.push(nbTriangles);
                 v4.tIndices_.push(nbTriangles);
-                triangles.push(new Triangle(nbTriangles));
+                triangles.push(TrianglesPool.get().init(nbTriangles));
                 iAr.push(iv1, iv3, iv4);
             }
         }

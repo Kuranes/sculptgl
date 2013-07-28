@@ -1,12 +1,12 @@
 'use strict';
 
-function Octree(parent, depth)
+function Octree()
 {
-  this.parent_ = typeof parent !== 'undefined' ? parent : null; //parent
-  this.depth_ = typeof depth !== 'undefined' ? depth : 0; //depth of current node
+  this.parent_ =  null; //parent
+  this.depth_ = 0; //depth of current node
   this.child_ = []; //children
-  this.aabbLoose_ = new Aabb(); //extended boundary for intersect test
-  this.aabbSplit_ = new Aabb(); //boundary in order to store exactly the triangle according to their center
+  this.aabbLoose_ = AabbPool.get(); //extended boundary for intersect test
+  this.aabbSplit_ = AabbPool.get(); //boundary in order to store exactly the triangle according to their center
   this.iTris_ = []; //triangles (if cell is a leaf)
 }
 
@@ -14,6 +14,28 @@ Octree.maxDepth_ = 8; //maximum depth
 Octree.maxTriangles_ = 100; //maximum triangles per cell
 
 Octree.prototype = {
+  /** constructor (pool init) */
+  init: function(parent, depth)
+  {
+    this.parent_ = typeof parent !== 'undefined' ? parent : null; //parent
+    this.depth_ = typeof depth !== 'undefined' ? depth : 0; //depth of current node
+    this.child_.length = 0;
+    this.aabbLoose_.init();
+    this.aabbSplit_.init();
+    this.iTris_.length = 0;
+    return this;
+  },
+  /** destructor (pool refill) */
+  deInit: function()
+  {
+    if (this.child_.length){
+      var child = this.child_;
+      for (var i = 0; i < 8; ++i){
+        if (child[i]) child[i].deInit();
+      }
+    }
+    OctreePool.put(this);
+  },
   /** Build octree */
   build: function (mesh, iTris, aabb)
   {
@@ -88,22 +110,22 @@ Octree.prototype = {
       dY = (ymax - ymin) * 0.5,
       dZ = (zmax - zmin) * 0.5;
     var nextDepth = this.depth_ + 1;
-    var aabb = new Aabb();
-    child[0] = new Octree(this, nextDepth);
+    var aabb = AabbPool.get();
+    child[0] = OctreePool.get().init(this, nextDepth);
     child[0].build(mesh, iTris, aabb.setCopy(min, cen));
-    child[1] = new Octree(this, nextDepth);
+    child[1] = OctreePool.get().init(this, nextDepth);
     child[1].build(mesh, iTris, aabb.set(xmin + dX, ymin, zmin, xcen + dX, ycen, zcen));
-    child[2] = new Octree(this, nextDepth);
+    child[2] = OctreePool.get().init(this, nextDepth);
     child[2].build(mesh, iTris, aabb.set(xcen, ycen - dY, zcen, xmax, ymax - dY, zmax));
-    child[3] = new Octree(this, nextDepth);
+    child[3] = OctreePool.get().init(this, nextDepth);
     child[3].build(mesh, iTris, aabb.set(xmin, ymin, zmin + dZ, xcen, ycen, zcen + dZ));
-    child[4] = new Octree(this, nextDepth);
+    child[4] = OctreePool.get().init(this, nextDepth);
     child[4].build(mesh, iTris, aabb.set(xmin, ymin + dY, zmin, xcen, ycen + dY, zcen));
-    child[5] = new Octree(this, nextDepth);
+    child[5] = OctreePool.get().init(this, nextDepth);
     child[5].build(mesh, iTris, aabb.set(xcen, ycen, zcen - dZ, xmax, ymax, zmax - dZ));
-    child[6] = new Octree(this, nextDepth);
+    child[6] = OctreePool.get().init(this, nextDepth);
     child[6].build(mesh, iTris, aabb.setCopy(cen, max));
-    child[7] = new Octree(this, nextDepth);
+    child[7] = OctreePool.get().init(this, nextDepth);
     child[7].build(mesh, iTris, aabb.set(xcen - dX, ycen, zcen, xmax - dX, ymax, zmax));
     this.iTris_.length = 0;
   },

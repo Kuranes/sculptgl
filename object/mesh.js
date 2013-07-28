@@ -10,10 +10,13 @@ function Mesh(gl)
   this.indexArray_ = null; //triangles (Uint16Array or Uint32Array)
 
   this.center_ = [0, 0, 0]; //center of mesh
-  this.octree_ = new Octree(); //octree
+  this.octree_ = OctreePool.get().init();; //octree
   this.matTransform_ = mat4.create(); //transformation matrix of the mesh
   this.leavesUpdate_ = []; //leaves of the octree to check
   this.render_ = new Render(gl); //the mesh renderer
+
+  // temp local var ref keep for GC easing
+  this.cutleaves_ = [];
 }
 
 Mesh.globalScale_ = 500; //for precision issue...
@@ -226,7 +229,7 @@ Mesh.prototype = {
     var nbTriangles = triangles.length;
 
     //ring vertices and mesh main aabb
-    var aabb = new Aabb();
+    var aabb = AabbPool.get();
     aabb.set(vAr[0], vAr[1], vAr[2], vAr[0], vAr[1], vAr[2]);
     var i = 0,
       j = 0;
@@ -274,7 +277,9 @@ Mesh.prototype = {
     for (i = 0; i < nbTriangles; ++i)
       trianglesAll[i] = i;
     ++Triangle.tagMask_;
-    this.octree_ = new Octree();
+      if (this.octree_)
+          this.octree_.deInit();
+    this.octree_ = OctreePool.get().init();
     this.octree_.build(this, trianglesAll, aabb);
     this.render_.initBuffers(this.vertexArray_, this.normalArray_, this.indexArray_);
     this.render_.updateShaders(this.render_.shaderType_, textures, shaders);
@@ -390,22 +395,26 @@ Mesh.prototype = {
         leaf.aabbLoose_.expandsWithAabb(t.aabb_);
     }
     var nbTrisToMove = trisToMove.length;
+    var tris = [];
+    var vecShift = [0, 0, 0];
+    var aabb = AabbPool.get();
     for (i = 0; i < nbTrisToMove; ++i) //add triangle to the octree
     {
       var tri = triangles[trisToMove[i]];
       if (this.octree_.aabbLoose_.isOutside(tri.aabb_)) //we reconstruct the whole octree, slow... but rare
       {
-        var aabb = new Aabb();
         aabb.setCopy(this.octree_.aabbSplit_.min_, this.octree_.aabbSplit_.max_);
-        var vecShift = [0, 0, 0];
+        vecShift[0] = 0.0; vecShift[1] = 0.0; vecShift[2] = 0.0;
         vec3.scale(vecShift, vec3.sub(vecShift, aabb.max_, aabb.min_), 0.2);
         vec3.sub(aabb.min_, aabb.min_, vecShift);
         vec3.add(aabb.max_, aabb.max_, vecShift);
-        var tris = [];
         var nbTriangles = triangles.length;
+        tris.length = 0;
         for (i = 0; i < nbTriangles; ++i)
           tris.push(i);
-        this.octree_ = new Octree();
+        if (this.octree_)
+            this.octree_.deInit();
+        this.octree_ = OctreePool.get().init();
         ++Triangle.tagMask_;
         this.octree_.build(this, tris, aabb);
         this.leavesUpdate_.length = 0;
@@ -423,6 +432,7 @@ Mesh.prototype = {
         }
       }
     }
+    aabb.deInit();
   },
 
   /** End of stroke, update octree (cut empty leaves or go deeper if needed) */
@@ -431,12 +441,12 @@ Mesh.prototype = {
     Tools.tidy(this.leavesUpdate_);
     var leavesUpdate = this.leavesUpdate_;
     var nbLeaves = leavesUpdate.length;
-    var cutLeaves = [];
+    this.cutleaves_.length = 0;
+    var cutLeaves = this.cutleaves_;
     var octreeMaxTriangles = Octree.maxTriangles_;
     var octreeMaxDepth = Octree.maxDepth_;
     ++Triangle.tagMask_;
-    var i = 0,
-      j = 0;
+    var i = 0;
     for (i = 0; i < nbLeaves; ++i)
     {
       var leaf = leavesUpdate[i];
@@ -449,12 +459,13 @@ Mesh.prototype = {
     }
     Tools.tidy(cutLeaves);
     var nbCutLeaves = cutLeaves.length;
-    for (i = 0; i < nbCutLeaves; ++i)
+    while (nbCutLeaves--)
     {
-      var oc = cutLeaves[i];
+      var oc = cutLeaves[nbCutLeaves];
       var child = oc.child_;
-      for (j = 0; j < 8; ++j)
-        child[j] = null;
+      i = 8;
+      while(i--)
+        child[i] = null;
     }
     this.leavesUpdate_.length = 0;
   }

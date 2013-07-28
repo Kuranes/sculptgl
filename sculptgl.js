@@ -1,4 +1,22 @@
 'use strict';
+/*
+(function() {
+    var lastTime = 0;
+    var vendors = ['ms', 'moz', 'webkit', 'o'];
+    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame']
+                                   || window[vendors[x]+'CancelRequestAnimationFrame'];
+    }
+
+    if (!window.requestAnimationFrame)
+      alert("browser is too old. Probably no webgl there anyway");
+
+    if (!window.cancelAnimationFrame)
+        window.cancelAnimationFrame = function(id) {
+            clearTimeout(id);
+        };
+}());*/
 
 function SculptGL()
 {
@@ -47,6 +65,12 @@ function SculptGL()
   this.undo_ = this.onUndo; //undo last action
   this.redo_ = this.onRedo; //redo last action
   this.dummyFunc_ = function () {}; //empty function... stupid trick to get a simple button in dat.gui
+
+
+
+  window.AabbPool = new ObjectMemoryPool(Aabb).grow(50000);
+  window.TrianglesPool = new ObjectMemoryPool(Triangle).grow(50000);
+  window.OctreePool = new ObjectMemoryPool(Octree).grow(50000);
 }
 
 SculptGL.elementIndexType = 0; //element index type (ushort or uint)
@@ -395,9 +419,14 @@ SculptGL.prototype = {
   /** Request a render */
   render: function ()
   {
+    if (!window.requestAnimationFrame){
+      this.animate();
+      return;
+    }
     if (this.queued)
       return;
     this.queued = true;
+
     window.requestAnimationFrame(this.animate.bind(this));
   },
 

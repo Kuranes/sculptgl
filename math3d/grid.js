@@ -2,7 +2,7 @@
 
 function Grid()
 {
-  this.aabb_ = new Aabb(); //aabb
+  this.aabb_ = AabbPool.get(); //aabb
   this.dimX_ = 0; //width
   this.dimY_ = 0; //length
   this.dimZ_ = 0; //height

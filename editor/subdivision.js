@@ -284,7 +284,7 @@ Topology.prototype.halfEdgeSplit = function (iTri, iv1, iv2, iv3)
   iAr[id + 2] = iv3;
 
   var iNewTri = triangles.length;
-  var newTri = new Triangle(iNewTri);
+  var newTri = TrianglesPool.get().init(iNewTri);
   id = iNewTri * 3;
   iAr[id] = ivMid;
   iAr[id + 1] = iv2;
@@ -455,7 +455,7 @@ Topology.prototype.fillTriangle = function (iTri, iv1, iv2, iv3, ivMid)
 
   var iNewTri = triangles.length;
   vMid.tIndices_.push(iTri, iNewTri);
-  var newTri = new Triangle(iNewTri);
+  var newTri = TrianglesPool.get().init(iNewTri)
   j = iNewTri * 3;
   iAr[j] = ivMid;
   iAr[j + 1] = iv2;

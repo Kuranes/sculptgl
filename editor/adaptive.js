@@ -70,7 +70,7 @@ Topology.prototype.checkCollisions = function (iVerts, d2Thickness)
   this.iVertsToDelete_ = [];
   var r2Thickness = d2Thickness * 0.25; //squared diameter to radius squared
 
-  var aabb = new Aabb();
+  var aabb = AabbPool.get();
   var nbVerts = iVerts.length;
   if (nbVerts > 0)
   {
