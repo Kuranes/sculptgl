@@ -89,7 +89,14 @@ Stéphane GINIER
   </div>
 
   <!-- wacom tablet plugin -->
-  <object id="tablet-plugin" type="application/x-wacomtabletplugin"></object>
+  <!--[if IE]>
+      <object id='wtPlugin' classid='CLSID:092dfa86-5807-5a94-bf3b-5a53ba9e5308'>
+      </object>
+      <![endif]-->
+  <!--[if !IE]> <-->
+      <embed id="wtPlugin" type="application/x-wacomtabletplugin" hidden="TRUE">
+  <!---->
+  <!--[endif]---->
 
   <!-- 3rd party libraries -->
   <script src='lib/dat.gui.js' > </script>
@@ -128,5 +135,7 @@ Stéphane GINIER
 
   <!-- main -->
   <script src='sculptgl.js'></script>
+
+
 </body>
 </html>

@@ -84,6 +84,7 @@ SculptGL.prototype = {
   {
     var self = this;
     var $canvas = $('#canvas');
+
     // mouse
     $canvas.mousedown(function (event)
     {
@@ -127,6 +128,59 @@ SculptGL.prototype = {
     {
       self.onMouseOut(event);
     });
+
+    //wacom touch
+    // ----------------------------- IE ---------- FireFox et al. ----
+        // http://www.wacomeng.com/web/
+        // http://www.wacomeng.com/web/WebPluginReleaseNotes.htm
+   self.wacomInputPlugin = window.wtPlugin || Tablet.plugin || document.querySelector('embed[type=\'application/x-wacomtabletplugin\']');;
+    if (self.wacomInputPlugin){
+      self._touchDeviceIDList = self.wacomInputPlugin.touchAPI.TouchDeviceIDList;
+      if (self._touchDeviceIDList.length !== 0){
+         self._touchDeviceID = self._touchDeviceIDList[0];
+
+
+        var touchDataEventHandlerStart = function(e){
+          //console.log("touchDataEventHandlerStart", e, self.wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID));
+
+          var _touchRawFingerData = wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID);
+          if ( _touchRawFingerData.Status == -1 ) return;
+          //var passthru = true;  // observe and pass touch data to system
+          var passthru = false; // consume data and do not pass to system
+          self.wacomInputPlugin.touchAPI.Open(self._touchDeviceID, passthru);
+
+          //mainHandStart(_touchRawFingerData.FingerList);
+        };
+        var touchDataEventHandlerMove = function(e){
+
+          //console.log("touchDataEventHandlerMove", e, self.wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID));
+
+          var _touchRawFingerData = self.wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID);
+          if ( _touchRawFingerData.Status == -1 ) return;
+
+          self.onWacomTouch(_touchRawFingerData.FingerList);
+
+
+        };
+        var touchDataEventHandlerEnd = function(e){
+          //console.log("touchDataEventHandlerEnd", e, self.wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID));
+
+          var _touchRawFingerData = self.wacomInputPlugin.touchAPI.TouchRawFingerData(self._touchDeviceID);
+          if ( _touchRawFingerData.Status == -1 ) return;
+          self.wacomInputPlugin.touchAPI.Close(self._touchDeviceID);
+
+          //mainHandEnd(_touchRawFingerData.FingerList);
+        };
+
+        self.wacomInputPlugin.touchAPI.addEventListener("TouchDeviceAttachEvent", touchDataEventHandlerStart, false);
+        self.wacomInputPlugin.touchAPI.addEventListener("TouchDataEvent", touchDataEventHandlerMove, false);
+        self.wacomInputPlugin.touchAPI.addEventListener("TouchDeviceDetachEvent", touchDataEventHandlerEnd, false);
+
+        self.wacomInputPlugin.touchAPI.Open(self._touchDeviceID, false);
+      }
+
+        }
+
 
     $canvas[0].addEventListener('webglcontextlost', self.onContextLost, false);
     $canvas[0].addEventListener('webglcontextrestored', self.onContextRestored, false);
@@ -708,6 +762,105 @@ SculptGL.prototype = {
     this.lastMouseY_ = mouseY;
     this.render();
   },
+  /** touch start event */
+  onWacomTouch: function (FingerList)
+  {
+
+    var startTouches = [];
+    var endTouches   = [];
+    var moveTouches  = [];
+    var activeTouches  = [];
+
+    for(var i = 0; i < FingerList.length; i++){
+      var finger = FingerList[i];
+      switch (finger.TouchState)
+      {
+        case 1:// start
+          startTouches.push(finger);
+          activeTouches.push(finger);
+        break;
+        case 2:// move
+          moveTouches.push(finger);
+          activeTouches.push(finger);
+        break;
+        case 3:// end
+          endTouches.push(finger);
+          activeTouches.push(finger);
+        break;
+      }
+    }
+
+    if (startTouches.length){
+       var mouseX = startTouches[0].PosX*($(canvas).width()),
+            mouseY = startTouches[0].PosY*($(canvas).height());
+        this.mouseButton_ = startTouches.length;
+        var button = startTouches.length;
+        if (startTouches.length && activeTouches.length)
+        {
+          if (this.mesh_)
+          {
+            this.states_.start();
+            if (this.sculpt_.tool_ === Sculpt.tool.ROTATE)
+            {
+              if (this.symmetry_)
+                this.sculpt_.startRotate(this.picking_, mouseX, mouseY, this.pickingSym_, this.ptPlane_, this.nPlane_);
+              else
+                this.sculpt_.startRotate(this.picking_, mouseX, mouseY);
+            }
+          }
+        }
+        if (activeTouches.length  === 2){
+          this.camera_.start(mouseX, mouseY);
+        }
+     }
+
+    if (moveTouches.length){
+
+       var mouseX = moveTouches[0].PosX*($(canvas).width()),
+            mouseY = moveTouches[0].PosY*($(canvas).height());
+            var pressure = Tablet.pressure();
+            var pressureRadius = this.usePenRadius_ ? pressure : 1;
+            var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
+            if (this.mesh_ && this.mouseButton_ !== 1)
+              this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
+            if (activeTouches.length === 1)
+            {
+              if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE)
+                this.sculptStroke(mouseX, mouseY, pressureRadius, pressureIntensity);
+              else if (this.picking_.mesh_)
+              {
+                this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
+                this.sculpt_.sculptMesh(this.picking_, pressureIntensity, mouseX, mouseY, this.lastMouseX_, this.lastMouseY_);
+                if (this.symmetry_)
+                {
+                  this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
+                  this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, this.lastMouseX_, this.lastMouseY_, mouseX, mouseY, true);
+                }
+              }
+              this.mesh_.updateBuffers();
+            }
+            else if (activeTouches.length === 2){
+              this.camera_.rotate(mouseX, mouseY);
+            }
+            else if (activeTouches.length === 3){
+              this.camera_.translate((mouseX - this.lastMouseX_) / 3000, (mouseY - this.lastMouseY_) / 3000);
+            }
+            this.lastMouseX_ = mouseX;
+            this.lastMouseY_ = mouseY;
+            this.render();
+    }
+
+    if (endTouches.length){
+            if (activeTouches.length === 1){
+                if (this.mesh_)
+                  this.mesh_.checkLeavesUpdate();
+                this.mouseButton_ = 0;
+            }
+      }
+
+
+  },
+
   /** Make a brush stroke */
   sculptStroke: function (mouseX, mouseY, pressureRadius, pressureIntensity)
   {

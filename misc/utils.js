@@ -54,7 +54,7 @@ Tools.intersectionArrays = function (a, b)
 var Tablet = {};
 
 /** wacom tablet plugin element **/
-Tablet.plugin = document.querySelector('object[type=\'application/x-wacomtabletplugin\']');
+Tablet.plugin = document.querySelector('embed[type=\'application/x-wacomtabletplugin\']');
 
 /** Returns the pressure of pen: [0, 1] **/
 Tablet.pressure = function ()
