@@ -29,6 +29,11 @@ function Render(gl)
   this.colorUnif_ = null; //color uniform location
 
   this.reflectionTexUnif_ = null; //reflection texture uniform location
+
+  //temp
+  this.mat3Temp_ = mat3.create();
+  this.mat4Temp_ = mat4.create();
+  this.mat4Temp_1 = mat4.create();
 }
 
 //the rendering mode
@@ -140,7 +145,11 @@ Render.prototype = {
 
     this.indexBuffer_ = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer_);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iAr, gl.DYNAMIC_DRAW);
+    // TODO:
+    // check status if bug solved
+    // https://github.com/KhronosGroup/WebGL/issues/328
+    // meanwhile use STATIC_DRAW
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iAr, gl.STATIC_DRAW);
   },
 
   /** Render the mesh */
@@ -151,9 +160,9 @@ Render.prototype = {
 
     var centerPicking = picking.interPoint_;
     var radiusSquared = picking.rWorldSqr_;
-    var mvMatrix = mat4.create();
+    var mvMatrix = this.mat4Temp_;
     mat4.mul(mvMatrix, camera.view_, matTransform);
-    var mvpMatrix = mat4.create();
+    var mvpMatrix = this.mat4Temp_1;
     mat4.mul(mvpMatrix, camera.proj_, mvMatrix);
 
     gl.enableVertexAttribArray(this.vertexAttrib_);
@@ -166,7 +175,7 @@ Render.prototype = {
 
     gl.uniformMatrix4fv(this.mvMatrixUnif_, false, mvMatrix);
     gl.uniformMatrix4fv(this.mvpMatrixUnif_, false, mvpMatrix);
-    gl.uniformMatrix3fv(this.normalMatrixUnif_, false, mat3.normalFromMat4(mat3.create(), mvMatrix));
+    gl.uniformMatrix3fv(this.normalMatrixUnif_, false, mat3.normalFromMat4(this.mat3Temp_, mvMatrix));
     gl.uniform3fv(this.centerPickingUnif_, vec3.transformMat4([0, 0, 0], centerPicking, mvMatrix));
     gl.uniform1f(this.radiusSquaredUnif_, radiusSquared);
 
@@ -225,6 +234,10 @@ Render.prototype = {
     gl.bufferData(gl.ARRAY_BUFFER, nAr, gl.DYNAMIC_DRAW);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer_);
+    // TODO:
+    // check status if bug solved
+    // https://github.com/KhronosGroup/WebGL/issues/328
+    // meanwhile use STATIC_DRAW
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, iAr, gl.STATIC_DRAW);
   },
 
@@ -232,7 +245,7 @@ Render.prototype = {
   makeWireframeBuffers: function (vAr, nAr, iAr)
   {
     var gl = this.gl_;
-    var vArray = new Float32Array(iAr.length * 3);
+    var vArray = window.Float32Pool.malloc(iAr.length * 3);
     var i = 0,
       j = 0,
       id = 0;
@@ -246,8 +259,10 @@ Render.prototype = {
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer_);
     gl.bufferData(gl.ARRAY_BUFFER, vArray, gl.DYNAMIC_DRAW);
+    window.Float32Pool.free(vArray);
 
-    var nArray = new Float32Array(iAr.length * 3);
+
+    var nArray =  window.Float32Pool.malloc(iAr.length * 3);
     for (i = 0; i < iAr.length; ++i)
     {
       j = i * 3;
@@ -258,8 +273,9 @@ Render.prototype = {
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer_);
     gl.bufferData(gl.ARRAY_BUFFER, nArray, gl.DYNAMIC_DRAW);
+    window.Float32Pool.free(nArray);
 
-    var baryArray = new Float32Array(iAr.length * 3);
+    var baryArray =  window.Float32Pool.malloc(iAr.length * 3);
     for (i = 0; i < iAr.length / 3; ++i)
     {
       j = i * 9;
@@ -277,5 +293,6 @@ Render.prototype = {
       this.barycenterBuffer_ = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.barycenterBuffer_);
     gl.bufferData(gl.ARRAY_BUFFER, baryArray, gl.DYNAMIC_DRAW);
+    window.Float32Pool.free(baryArray);
   }
 };

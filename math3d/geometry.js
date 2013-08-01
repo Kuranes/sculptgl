@@ -5,6 +5,7 @@ Geometry.tempVec4 = [0.0, 0.0, 0.0, 0.0];
 Geometry.tempVec4_1 = [0.0, 0.0, 0.0, 0.0];
 Geometry.tempVec4_2 = [0.0, 0.0, 0.0, 0.0];
 Geometry.tempVec4_3 = [0.0, 0.0, 0.0, 0.0];
+Geometry.mat4Temp_ = mat4.create();
 
 /** Normalize coordinate mouse between -1 and 1 */
 Geometry.normalizedMouse = function (mouseX, mouseY, width, height)
@@ -60,7 +61,7 @@ Geometry.unproject = function (winx, winy, winz, view, proj, width, height)
   winz = (2 * winz) - 1;
   Geometry.tempVec4[0] = winx;Geometry.tempVec4[1] = winy;Geometry.tempVec4[2] = winz;Geometry.tempVec4[3] = 1.0;
   var n = Geometry.tempVec4//[winx, winy, winz, 1];
-  var mat = mat4.create();
+  var mat = Geometry.mat4Temp_;
   vec4.transformMat4(n, n, mat4.invert(mat, mat4.mul(mat, proj, view)));
   var w = n[3];
   return [n[0] / w, n[1] / w, n[2] / w];

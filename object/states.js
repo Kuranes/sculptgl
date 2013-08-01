@@ -12,6 +12,24 @@ function State()
   this.aabbState_ = AabbPool.get(); //root aabb
 }
 
+State.prototype.init = function(){
+   this.aabbState_.init();
+   return this;
+}
+
+State.prototype.deInit = function(){
+  this.nbTrianglesState_ = 0; 
+  this.nbVerticesState_ = 0;
+  this.vArState_.length = 0;
+  this.nArState_.length = 0;
+  this.iArState_.length = 0; 
+  this.vState_.length = 0; 
+  this.tState_.length = 0; 
+
+  StatePool.put(this);
+}
+
+
 function States()
 {
   this.mesh_ = null; //the mesh
@@ -30,7 +48,8 @@ States.prototype = {
     if (this.firstState_) undos.length = 0;
     else if (undos.length > 10)
     {
-      undos.shift();
+      var shifted = undos.shift();
+      shifted.deInit();
       --this.curUndoIndex_;
     }
 
@@ -41,12 +60,13 @@ States.prototype = {
       var index = undos.length - 1;
       while (index !== this.curUndoIndex_)
       {
-        undos.pop();
+        var poped = undos.pop();
+        poped.deInit();
         --index;
       }
     }
 
-    undos.push(new State());
+    undos.push(window.StatePool.get().init());
     this.curUndoIndex_ = undos.length - 1;
     var undoCur = undos[this.curUndoIndex_];
     var mesh = this.mesh_;
@@ -154,7 +174,7 @@ States.prototype = {
     if (!this.undos_.length || this.firstState_)
       return;
 
-    var redoState = new State();
+    var redoState = window.StatePool.get().init();
     var mesh = this.mesh_;
     redoState.nbTrianglesState_ = mesh.triangles_.length;
     redoState.nbVerticesState_ = mesh.vertices_.length;
@@ -456,7 +476,7 @@ States.prototype = {
     var mesh = this.mesh_;
     var triangles = mesh.triangles_;
     var nbTriangles = triangles.length;
-
+    // TODO: gc the array
     var trianglesAll = new Array(nbTriangles);
     for (var i = 0; i < nbTriangles; ++i)
       trianglesAll[i] = i;
@@ -471,9 +491,20 @@ States.prototype = {
   /** Reset */
   reset: function ()
   {
+    // TODO: GC ?
     this.mesh_ = null;
-    this.undos_ = [];
-    this.redos_ = [];
+    var i;
+    for (i = 0; i < this.undos_.length; ++i)
+    {
+      this.undos_[i].deInit();
+    }
+    this.undos_.length = 0;
+
+    for (i = 0; i < this.redos_.length; ++i)
+    {
+      this.redos_[i].deInit();
+    }
+    this.redos_.length = 0;
     this.curUndoIndex_ = 0;
     this.firstState_ = false;
   }

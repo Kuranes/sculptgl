@@ -15,11 +15,13 @@ Grid.prototype = {
   /** Constructor */
   setBoundaries: function (aabb)
   {
-    var vecShift = [0, 0, 0];
+    var vecShift = [0, 0, 0];// temp this.vecshitf ?
     vec3.sub(vecShift, aabb.max_, aabb.min_);
     vec3.scale(vecShift, vecShift, 0.1);
     vec3.sub(aabb.min_, aabb.min_, vecShift);
     vec3.add(aabb.max_, aabb.max_, vecShift);
+
+    this.aabb_.deInit();
     this.aabb_ = aabb;
   },
 
@@ -39,12 +41,17 @@ Grid.prototype = {
     this.size_ = 1 + (dimX * dimY * dimZ);
     var nbVerts = this.size_;
     var iVerts = this.iVerts_;
+    // TODO: GC iVerts array and subbarrays
     iVerts.length = nbVerts;
     for (var i = 0; i < nbVerts; ++i)
       iVerts[i] = [];
     this.dimX_ = dimX;
     this.dimY_ = dimY;
     this.dimZ_ = dimZ;
+  },
+
+  deInit : function() {
+    GridPool.put(this);
   },
 
   /** Build the grid */

@@ -10,6 +10,11 @@ function Picking(camera)
   this.rWorldSqr_ = 0; //radius of the selection area (world unit)
   this.camera_ = camera; //the camera
   this.eyeDir_ = [0, 0, 0]; //eye direction
+  this.iTrisCandidates_ = [];//temp array
+  this.ray_ = [0.0, 0.0, 0.0];//temp ray
+  this.rayInv_ = [0.0, 0.0, 0.0];//temp rayInv
+  this.vertInter_ = [0.0, 0.0, 0.0];//temp rayInter
+  this.mat4Temp_ = mat4.create();
 }
 
 Picking.prototype = {
@@ -18,7 +23,7 @@ Picking.prototype = {
   {
     var vNear = Geometry.point2Dto3D(this.camera_, mouseX, mouseY, 0),
       vFar = Geometry.point2Dto3D(this.camera_, mouseX, mouseY, 1);
-    var matInverse = mat4.create();
+    var matInverse = this.mat4Temp_;
     mat4.invert(matInverse, mesh.matTransform_);
     vec3.transformMat4(vNear, vNear, matInverse);
     vec3.transformMat4(vFar, vFar, matInverse);
@@ -41,14 +46,19 @@ Picking.prototype = {
     var triangles = mesh.triangles_;
     var vAr = mesh.vertexArray_;
     var iAr = mesh.indexArray_;
-    var ray = [0, 0, 0];
+    this.ray_[0] = 0.0;this.ray_[1] = 0.0;this.ray_[2] = 0.0;
+    var ray = this.ray_;
     vec3.sub(ray, vFar, vNear);
     vec3.normalize(ray, ray);
-    var rayInv = [1 / ray[0], 1 / ray[1], 1 / ray[2]];
-    var iTrisCandidates = mesh.octree_.intersectRay(vNear, rayInv);
+    this.rayInv_[0] = 1.0 / this.ray_[0];this.rayInv_[1] = 1.0 / this.ray_[1];this.rayInv_[2] = 1.0 / this.ray_[2];
+    var rayInv = this.rayInv_;
+    var iTrisCandidates = this.iTrisCandidates_;
+    iTrisCandidates.length = 0;
+    mesh.octree_.intersectRay(vNear, rayInv, iTrisCandidates);
     var distance = -1;
     var nbTrisCandidates = iTrisCandidates.length;
-    var vertInter = [0, 0, 0];
+    this.vertInter_[0] = 0.0;this.vertInter_[1] = 0.0;this.vertInter_[2] = 0.0;
+    var vertInter = this.vertInter_ ;
     for (var i = 0; i < nbTrisCandidates; ++i)
     {
       var indTri = iTrisCandidates[i];
@@ -76,9 +86,12 @@ Picking.prototype = {
     if (this.pickedTriangle_ !== -1)
     {
       this.mesh_ = mesh;
-      var interPointTransformed = [0, 0, 0];
+      this.vertInter_[0] = 0.0;this.vertInter_[1] = 0.0;this.vertInter_[2] = 0.0;
+      var interPointTransformed = this.vertInter_ ;
       vec3.transformMat4(interPointTransformed, this.interPoint_, this.mesh_.matTransform_);
+      //TODO: deGCize the  returned array
       var z = Geometry.point3Dto2D(this.camera_, interPointTransformed)[2];
+      //TODO: deGCize the  returned array
       var vCircle = Geometry.point2Dto3D(this.camera_, mouseX + (this.rDisplay_ * pressure), mouseY, z);
       this.rWorldSqr_ = vec3.sqrDist(interPointTransformed, vCircle);
     }

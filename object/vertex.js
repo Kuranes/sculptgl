@@ -14,11 +14,26 @@ function Vertex(id)
 Vertex.tagMask_ = 1; //flag mask value (should be always >= tagFlag_)
 Vertex.sculptMask_ = 1; //flag mask value (should be always >= sculptFlag_)
 
-Vertex.prototype = {
+Vertex.prototype = { 
+  init: function(id)
+  {
+    this.id_ = id; //id 
+    this.tagFlag_ = 1; //general purpose flag (<0 means the vertex is to be deleted)
+    this.sculptFlag_ = 1; //sculpting flag
+    this.stateFlag_ = 1; //flag for history
+    return this;
+  },
+  /** destructor (pool refill) */
+  deInit: function()
+  {
+    this.tIndices_.length = 0; //neighboring triangles indices
+    this.ringVertices_.length = 0; //neighboring vertices (1-ring)
+    VerticesPool.put(this);
+  },
   /** Clone vertex */
   clone: function ()
   {
-    var v = new Vertex(this.id_);
+    var v = VerticesPool.get().init(this.id_);
     v.tIndices_ = this.tIndices_.slice();
     v.ringVertices_ = this.ringVertices_.slice();
     v.tagFlag_ = this.tagFlag_;

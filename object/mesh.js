@@ -10,19 +10,40 @@ function Mesh(gl)
   this.indexArray_ = null; //triangles (Uint16Array or Uint32Array)
 
   this.center_ = [0, 0, 0]; //center of mesh
-  this.octree_ = OctreePool.get().init();; //octree
+  this.octree_ = OctreePool.get().init(); //octree
   this.matTransform_ = mat4.create(); //transformation matrix of the mesh
   this.leavesUpdate_ = []; //leaves of the octree to check
   this.render_ = new Render(gl); //the mesh renderer
 
   // temp local var ref keep for GC easing
   this.cutleaves_ = [];
+  this.mat4Temp_ = mat4.create();
 }
 
 Mesh.globalScale_ = 500; //for precision issue...
 Mesh.stateMask_ = 1; //for history
 
 Mesh.prototype = {
+  // destructor that gives back to pools
+  deInit: function ()
+  {
+    window.Float32Pool.free(this.vertexArray_);
+    window.Float32Pool.free(this.normalArray_);
+    window.indexArrayTypePool.free(this.indexArray_);
+
+    window.indexPool.free(this.indexArray_);
+
+    var vertices = this.vertices_;
+    for (var i = 0; i < vertices.length; ++i){
+      vertices[i].deInit();
+    }
+    var triangles = this.triangles_;
+    for (var i = 0; i < triangles.length; ++i){
+      triangles[i].deInit();
+    }
+    this.octree_.deInit();
+
+  },
   /** Return all the triangles linked to a group of vertices */
   getTrianglesFromVertices: function (iVerts)
   {
@@ -210,7 +231,7 @@ Mesh.prototype = {
   /** Move the mesh center to a certain point */
   moveTo: function (destination)
   {
-    mat4.translate(this.matTransform_, mat4.create(), vec3.sub(destination, destination, this.center_));
+    mat4.translate(this.matTransform_, mat4.identity(this.mat4Temp_), vec3.sub(destination, destination, this.center_));
   },
 
   /** Render the mesh */
@@ -239,7 +260,7 @@ Mesh.prototype = {
       j = i * 3;
       aabb.expandsWithPoint(vAr[j], vAr[j + 1], vAr[j + 2]);
     }
-    this.center_ = aabb.computeCenter();
+    vec3.copy(this.center_, aabb.computeCenter());
 
     //scale
     var diag = vec3.dist(aabb.min_, aabb.max_);
@@ -464,8 +485,11 @@ Mesh.prototype = {
       var oc = cutLeaves[nbCutLeaves];
       var child = oc.child_;
       i = 8;
-      while(i--)
+      while(i--){
+        if (child[i])
+          child[i].deInit();
         child[i] = null;
+      }
     }
     this.leavesUpdate_.length = 0;
   }

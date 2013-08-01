@@ -86,7 +86,7 @@ Topology.prototype.checkCollisions = function (iVerts, d2Thickness)
     aabb.expandsWithPoint(vAr[id], vAr[id + 1], vAr[id + 2]);
   }
 
-  var grid = new Grid();
+  var grid = GridPool.get();
   grid.setBoundaries(aabb);
   grid.init(Math.sqrt(r2Thickness));
   grid.build(mesh, iVerts);
@@ -132,6 +132,8 @@ Topology.prototype.checkCollisions = function (iVerts, d2Thickness)
     }
   }
 
+  grid.deInit();
+
   this.applyDeletion();
   this.iVertsDecimated_ = this.getValidModifiedVertices();
 
@@ -145,10 +147,11 @@ Topology.prototype.checkCollisions = function (iVerts, d2Thickness)
     if (vertices[id].sculptFlag_ === vertexSculptMask)
       vSmooth.push(id);
   }
-  var sc = new Sculpt();
+  var sc = SculptPool.get().init();
   sc.mesh_ = mesh;
   mesh.expandsVertices(vSmooth, 1);
   sc.smooth(vSmooth, 1.0);
+  sc.deInit();
 };
 
 /** Vertex joint */
@@ -677,7 +680,7 @@ Topology.prototype.cleanUpSingularVertex = function (iv)
 
   this.checkArrayLength(1); //XXX
   var ivNew = vertices.length;
-  var vNew = new Vertex(ivNew);
+  var vNew = VerticesPool.get().init(ivNew);
   vNew.stateFlag_ = meshStateMask;
   id = ivNew * 3;
   vAr[id] = vx;
@@ -713,12 +716,13 @@ Topology.prototype.cleanUpSingularVertex = function (iv)
 
   var vSmooth = [];
   vSmooth.push(iv, ivNew);
-  var smo = new Sculpt();
+  var smo = SculptPool.get().init();
   smo.mesh_ = mesh;
   smo.smooth(vSmooth, 1.0);
-
+  smo.deInit();
   this.cleanUpSingularVertex(iv);
   this.cleanUpSingularVertex(ivNew);
+
 };
 
 /** Delete vertex if it is degenerate */

@@ -5,7 +5,8 @@ function Aabb()
 {
   this.min_  = [0.0, 0.0, 0.0]; //min vertex
   this.max_  = [0.0, 0.0, 0.0]; //max vertex
-  this.temp_ = [0.0, 0.0, 0.0]; //temp_ vertex
+  this.center_ = [0.0, 0.0, 0.0]; //center vertex
+  this.dirty_ = true;
 }
 
 Aabb.prototype = {
@@ -14,6 +15,8 @@ Aabb.prototype = {
   {
     this.min_[0] = 0.0;this.min_[1] = 0.0;this.min_[2] = 0.0; //min vertex
     this.max_[0] = 0.0;this.max_[1] = 0.0;this.max_[2] = 0.0; //max vertex
+    this.center_[0] = 0.0;this.center_[1] = 0.0;this.center_[2] = 0.0; //max vertex
+    this.dirty_ = true;
     return this;
   },
   /** destructor (pool refill) */
@@ -25,16 +28,14 @@ Aabb.prototype = {
   clone: function ()
   {
     var ab = AabbPool.get();
-    ab.min_ = this.min_.slice();
-    ab.max_ = this.max_.slice();
+    ab.copy(this);
     return ab;
   },
 
   /** Copy aabb */
   copy: function (aabb)
   {
-    vec3.copy(this.min_, aabb.min_);
-    vec3.copy(this.max_, aabb.max_);
+    this.setCopy(aabb.min_, aabb.max_);
     return this;
   },
 
@@ -43,6 +44,7 @@ Aabb.prototype = {
   {
     vec3.copy(this.min_, min);
     vec3.copy(this.max_, max);
+    this.dirty_ = true;
     return this;
   },
 
@@ -57,14 +59,20 @@ Aabb.prototype = {
     max[0] = xmax;
     max[1] = ymax;
     max[2] = zmax;
+
+    this.dirty_ = true;
+
     return this;
   },
 
   /** Compute center */
   computeCenter: function ()
   {
-    this.temp_[0] = 0.0;this.temp_[1] = 0.0;this.temp_[2] = 0.0;
-    return vec3.scale(this.temp_, vec3.add(this.temp_, this.min_, this.max_), 0.5);
+    if (this.dirty_){
+      vec3.scale(this.center_, vec3.add(this.center_, this.min_, this.max_), 0.5);
+      this.dirty_ = false;
+    }
+    return this.center_;
   },
 
   /** Collision detection */
@@ -114,7 +122,7 @@ Aabb.prototype = {
     return true;
   },
 
-  /** Change the size of the aabb to include vert */
+  /** Change the size of the aabb to include vert*/
   expandsWithPoint: function (vx, vy, vz)
   {
     var min = this.min_,
@@ -126,6 +134,8 @@ Aabb.prototype = {
     if (vy < min[1]) min[1] = vy;
     if (vz > max[2]) max[2] = vz;
     if (vz < min[2]) min[2] = vz;
+
+    this.dirty_ = true;
   },
 
   /** Change the size of the aabb to include another aabb */
@@ -148,6 +158,8 @@ Aabb.prototype = {
     if (abminy < min[1]) min[1] = abminy;
     if (abmaxz > max[2]) max[2] = abmaxz;
     if (abminz < min[2]) min[2] = abminz;
+
+    this.dirty_ = true;
   },
 
   /** Return true if a ray intersection the box */
@@ -220,5 +232,7 @@ Aabb.prototype = {
       min[2] -= offset;
       max[2] += offset;
     }
+
+    this.dirty_ = true;
   }
 };

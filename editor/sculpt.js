@@ -2,7 +2,7 @@
 
 function Sculpt(states)
 {
-  this.states_ = states; //for undo-redo
+  this.states_ = null; //for undo-redo
   this.mesh_ = null; //mesh
   this.intensity_ = 0.75; //deformation intensity
   this.tool_ = Sculpt.tool.BRUSH; //sculpting mode
@@ -10,7 +10,6 @@ function Sculpt(states)
   this.detail_ = 0.75; //intensity of details
   this.negative_ = false; //opposition deformation
   this.culling_ = false; //if we backface cull the vertices
-
   this.d2Min_ = 0; //uniform refinement of mesh (min edge length)
   this.d2Max_ = 0; //uniform refinement of mesh (max edge length)
   this.d2Thickness_ = 0.5; //distance between 2 vertices before split/merge
@@ -24,6 +23,10 @@ function Sculpt(states)
     normal: [0, 0, 0], //normal of rotation plane
     center2d: [0, 0] //2D center of rotation 
   };
+
+  this.topology_ = new Topology();
+  this.float32Pool = window.Float32Pool.malloc(50000 * 3);
+  this.mat4Temp_ = mat4.create();
 }
 
 //the sculpting tools
@@ -47,6 +50,33 @@ Sculpt.topo = {
 };
 
 Sculpt.prototype = {
+  init: function (states){
+    this.states_ = states; //for undo-redo
+    this.mesh_ = null; //mesh
+    this.intensity_ = 0.75; //deformation intensity
+    this.tool_ = Sculpt.tool.BRUSH; //sculpting mode
+    this.topo_ = Sculpt.topo.SUBDIVISION; //topological mode
+    this.detail_ = 0.75; //intensity of details
+    this.negative_ = false; //opposition deformation
+    this.culling_ = false; //if we backface cull the vertices
+
+    this.d2Min_ = 0; //uniform refinement of mesh (min edge length)
+    this.d2Max_ = 0; //uniform refinement of mesh (max edge length)
+    this.d2Thickness_ = 0.5; //distance between 2 vertices before split/merge
+    this.d2Move_ = 0; //max displacement of vertices per step
+
+    this.rotateData_.normal[0] = 0.0;this.rotateData_.normal[1] = 0.0;this.rotateData_.normal[2] = 1.0;
+    this.rotateData_.center2d[0] = 0.0;this.rotateData_.center2d[1] = 0.0;
+
+    this.rotateDataSym_.normal[0] = 0.0;this.rotateDataSym_.normal[1] = 0.0;this.rotateDataSym_.normal[2] = 1.0;
+    this.rotateDataSym_.center2d[0] = 0.0;this.rotateDataSym_.center2d[1] = 0.0;
+
+    return this;
+
+  },
+  deInit : function() {
+    SculptPool.put(this);
+  },
   /** Set adaptive parameters */
   setAdaptiveParameters: function (radiusSquared)
   {
@@ -71,7 +101,8 @@ Sculpt.prototype = {
     //undo-redo
     this.states_.pushState(iTris, iVertsSelected);
 
-    var topo = new Topology(this.states_);
+    this.topology_.init(this.states_);
+    var topo = this.topology_;
     topo.mesh_ = mesh;
     topo.radiusSquared_ = radiusSquared;
     topo.center_ = center;
@@ -161,6 +192,7 @@ Sculpt.prototype = {
       return;
     var vAr = this.mesh_.vertexArray_;
     var radius = Math.sqrt(radiusSquared);
+    var invRadius = 1.0 / radius;
     var nbVerts = iVertsInRadius.length;
     var deformIntensity = intensity * radius * 0.1;
     if (this.topo_ === Sculpt.topo.ADAPTIVE)
@@ -179,8 +211,9 @@ Sculpt.prototype = {
       var dx = vAr[ind] - cx,
         dy = vAr[ind + 1] - cy,
         dz = vAr[ind + 2] - cz;
-      var dist = Math.sqrt(dx * dx + dy * dy + dz * dz) / radius;
-      var fallOff = 3 * dist * dist * dist * dist - 4 * dist * dist * dist + 1;
+      var dist = Math.sqrt(dx * dx + dy * dy + dz * dz) * invRadius;
+      var distSq = dist * dist;
+      var fallOff = 3 * distSq * distSq - 4 * distSq * dist + 1;
       fallOff = deformIntensity * fallOff;
       vAr[ind] += anx * fallOff;
       vAr[ind + 1] += any * fallOff;
@@ -225,7 +258,7 @@ Sculpt.prototype = {
     var rotateData = this.rotateData_;
     var vNear = Geometry.point2Dto3D(picking.camera_, mouseX, mouseY, 0),
       vFar = Geometry.point2Dto3D(picking.camera_, mouseX, mouseY, 1);
-    var matInverse = mat4.create();
+    var matInverse = this.mat4Temp_;
     mat4.invert(matInverse, this.mesh_.matTransform_);
     vec3.transformMat4(vNear, vNear, matInverse);
     vec3.transformMat4(vFar, vFar, matInverse);
@@ -303,7 +336,11 @@ Sculpt.prototype = {
     var mesh = this.mesh_;
     var vAr = mesh.vertexArray_;
     var nbVerts = iVerts.length;
-    var smoothVerts = new Float32Array(nbVerts * 3);
+    if (nbVerts*3 > this.float32Pool.length){
+        window.Float32Pool.free(this.float32Pool);
+        this.float32Pool = window.Float32Pool.malloc(nbVerts*3);
+    }
+    var smoothVerts = this.float32Pool;
     this.laplacianSmooth(iVerts, smoothVerts);
     var d2Move = this.d2Move_;
     var dMove = Math.sqrt(d2Move);
@@ -470,7 +507,13 @@ Sculpt.prototype = {
     var vAr = mesh.vertexArray_;
     var nAr = mesh.normalArray_;
     var nbVerts = iVerts.length;
-    var smoothVerts = new Float32Array(nbVerts * 3);
+
+    if (nbVerts*3 > this.float32Pool.length){
+        window.Float32Pool.free(this.float32Pool);
+        this.float32Pool = window.Float32Pool.malloc(nbVerts * 3);
+    }
+    var smoothVerts = this.float32Pool;
+
     this.laplacianSmooth(iVerts, smoothVerts);
     for (var i = 0; i < nbVerts; ++i)
     {
@@ -527,9 +570,10 @@ Sculpt.prototype = {
             ++nbVertEdge;
           }
         }
-        smoothVerts[i3] = nx / nbVertEdge;
-        smoothVerts[i3 + 1] = ny / nbVertEdge;
-        smoothVerts[i3 + 2] = nz / nbVertEdge;
+        var nbVertEdgeInv = 1.0 / nbVertEdge;
+        smoothVerts[i3] = nx * nbVertEdgeInv;
+        smoothVerts[i3 + 1] = ny * nbVertEdgeInv;
+        smoothVerts[i3 + 2] = nz * nbVertEdgeInv;
       }
       else
       {
@@ -540,9 +584,10 @@ Sculpt.prototype = {
           ny += vAr[ind + 1];
           nz += vAr[ind + 2];
         }
-        smoothVerts[i3] = nx / nbVRing;
-        smoothVerts[i3 + 1] = ny / nbVRing;
-        smoothVerts[i3 + 2] = nz / nbVRing;
+        var nbVRingInv = 1.0 / nbVRing;
+        smoothVerts[i3] = nx * nbVRingInv;
+        smoothVerts[i3 + 1] = ny * nbVRingInv;
+        smoothVerts[i3 + 2] = nz * nbVRingInv;
       }
     }
   },
@@ -584,6 +629,7 @@ Sculpt.prototype = {
       ay += vAr[ind + 1];
       az += vAr[ind + 2];
     }
-    return [ax / nbVerts, ay / nbVerts, az / nbVerts];
+    var nbVertInv = 1.0 / nbVerts;
+    return [ax * nbVertInv, ay * nbVertInv, az * nbVertInv];
   }
 };

@@ -17,7 +17,7 @@ Files.loadOBJ = function (data, mesh)
         if (line.startsWith('v '))
         {
             split = line.split(/\s+/);
-            vertices.push(new Vertex(vertices.length));
+            vertices.push(VerticesPool.get().init(vertices.length));
             vAr.push(parseFloat(split[1]), parseFloat(split[2]), parseFloat(split[3]));
         }
         else if (line.startsWith('f '))
@@ -69,9 +69,11 @@ Files.loadOBJ = function (data, mesh)
             }
         }
     }
-    mesh.vertexArray_ = new Float32Array(vAr.length * 2);
-    mesh.normalArray_ = new Float32Array(vAr.length * 2);
-    mesh.indexArray_ = new SculptGL.indexArrayType(iAr.length * 2);
+
+
+    mesh.vertexArray_ = window.Float32Pool.malloc(vAr.length * 2);
+    mesh.normalArray_ = window.Float32Pool.malloc(vAr.length * 2);
+    mesh.indexArray_ = window.indexArrayTypePool.malloc(iAr.length * 2);
     mesh.vertexArray_.set(vAr);
     mesh.indexArray_.set(iAr);
 };

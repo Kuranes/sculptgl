@@ -85,9 +85,10 @@ Topology.prototype.subdivide = function (iTris, detailMaxSquared)
 
   var nbVNew = vNew.length;
   mesh.expandsVertices(vNew, 1);
-  var smoother = new Sculpt();
+  var smoother = SculptPool.get().init();
   smoother.mesh_ = mesh;
   smoother.smoothFlat(vNew.slice(nbVNew), 1.0);
+  smoother.deInit();
 
   var vAr = this.mesh_.vertexArray_;
   var centerPoint = this.center_;
@@ -128,24 +129,26 @@ Topology.prototype.checkArrayLength = function (nbTris)
   var vLen = vertices.length * 3 + nbTris * nb;
   if (vAr.length < vLen)
   {
-    temp = new Float32Array(vLen * 2);
-    vLen = vAr.length;
+    temp = window.Float32Pool.malloc(vLen * 2);
     for (i = 0; i < vLen; ++i)
       temp[i] = vAr[i];
+    window.Float32Pool.free(this.mesh_.vertexArray_);
     this.mesh_.vertexArray_ = temp;
 
-    temp = new Float32Array(vLen * 2);
+    temp = window.Float32Pool.malloc(vLen * 2);
     for (i = 0; i < vLen; ++i)
       temp[i] = nAr[i];
+    window.Float32Pool.free(this.mesh_.normalArray_);
     this.mesh_.normalArray_ = temp;
   }
   var iLen = triangles.length * 3 + nbTris * nb;
   if (iAr.length < iLen)
   {
-    temp = new SculptGL.indexArrayType(iLen * 2);
+    temp = window.indexArrayTypePool.malloc(iLen * 2);
     iLen = iAr.length;
     for (i = 0; i < iLen; ++i)
       temp[i] = iAr[i];
+    window.indexArrayTypePool.free(this.mesh_.indexArray_);
     this.mesh_.indexArray_ = temp;
   }
 };
@@ -298,7 +301,7 @@ Topology.prototype.halfEdgeSplit = function (iTri, iv1, iv2, iv3)
   if (isNewVertex) //new vertex
   {
     var ind = vertices.length;
-    var vMidTest = new Vertex(ind);
+    var vMidTest = VerticesPool.get().init(ind);
 
     id = iv1 * 3;
     var v1x = vAr[id],

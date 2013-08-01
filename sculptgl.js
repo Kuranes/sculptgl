@@ -36,12 +36,27 @@ function SculptGL()
   this.ptPlane_ = [0, 0, 0]; //point origin of the plane symmetry
   this.nPlane_ = [1, 0, 0]; //normal of plane symmetry
 
+
+  window.Float32Pool = new DataMemoryPool(500000*3, Float32Array);
+
+  window.AabbPool = new ObjectMemoryPool(Aabb).grow(500000);
+  window.TrianglesPool = new ObjectMemoryPool(Triangle).grow(500000);
+  window.VerticesPool = new ObjectMemoryPool(Vertex).grow(500000);
+  window.OctreePool = new ObjectMemoryPool(Octree).grow(500000);
+
+  window.StatePool = new ObjectMemoryPool(State).grow(5);
+
+  window.GridPool = new ObjectMemoryPool(Grid).grow(1);
+  window.SculptPool = new ObjectMemoryPool(Sculpt).grow(1);
+  window.TopologyPool = new ObjectMemoryPool(Topology).grow(1);
+
+
   //core of the app
   this.states_ = new States(); //for undo-redo
   this.camera_ = new Camera(); //the camera
   this.picking_ = new Picking(this.camera_); //the ray picking
   this.pickingSym_ = new Picking(this.camera_); //the symmetrical picking
-  this.sculpt_ = new Sculpt(this.states_); //sculpting management
+  this.sculpt_ = SculptPool.get().init(this.states_); //sculpting management
   this.mesh_ = null; //the mesh
 
   //datas
@@ -68,9 +83,7 @@ function SculptGL()
 
 
 
-  window.AabbPool = new ObjectMemoryPool(Aabb).grow(50000);
-  window.TrianglesPool = new ObjectMemoryPool(Triangle).grow(50000);
-  window.OctreePool = new ObjectMemoryPool(Octree).grow(50000);
+
 }
 
 SculptGL.elementIndexType = 0; //element index type (ushort or uint)
@@ -192,6 +205,8 @@ SculptGL.prototype = {
         SculptGL.elementIndexType = gl.UNSIGNED_SHORT;
         SculptGL.indexArrayType = Uint16Array;
       }
+      window.indexArrayTypePool = new DataMemoryPool(500000, SculptGL.indexArrayType);
+
       gl.viewportWidth = $(window).width();
       gl.viewportHeight = $(window).height();
       gl.clearColor(0.2, 0.2, 0.2, 1);
@@ -826,6 +841,8 @@ SculptGL.prototype = {
   /** Initialization before loading the mesh */
   startMeshLoad: function ()
   {
+    if (this.mesh_)
+      this.mesh_.deInit();
     this.mesh_ = new Mesh(this.gl_);
     this.states_.reset();
     this.states_.mesh_ = this.mesh_;

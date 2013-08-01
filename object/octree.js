@@ -17,12 +17,11 @@ Octree.prototype = {
   /** constructor (pool init) */
   init: function(parent, depth)
   {
-    this.parent_ = typeof parent !== 'undefined' ? parent : null; //parent
-    this.depth_ = typeof depth !== 'undefined' ? depth : 0; //depth of current node
-    this.child_.length = 0;
+    this.parent_ = typeof parent !== 'undefined' ? parent : null;
+    this.depth_ = typeof depth !== 'undefined' ? depth : 0;
+
     this.aabbLoose_.init();
     this.aabbSplit_.init();
-    this.iTris_.length = 0;
     return this;
   },
   /** destructor (pool refill) */
@@ -34,6 +33,9 @@ Octree.prototype = {
         if (child[i]) child[i].deInit();
       }
     }
+    this.parent_ = null; //parent
+    this.child_.length = 0;
+    this.iTris_.length = 0;
     OctreePool.put(this);
   },
   /** Build octree */
@@ -131,25 +133,28 @@ Octree.prototype = {
   },
 
   /** Return triangles in cells hit by a ray */
-  intersectRay: function (vNear, rayInv)
+  intersectRay: function (vNear, rayInv, iTriangles)
   {
     if (this.aabbLoose_.intersectRay(vNear, rayInv))
     {
       if (this.child_[0])
       {
-        var iTriangles = [];
+        //var iTriangles = [];
         var child = this.child_;
         for (var i = 0; i < 8; ++i)
         {
-          var iTris = child[i].intersectRay(vNear, rayInv);
-          iTriangles.push.apply(iTriangles, iTris);
+          //var iTris =
+          child[i].intersectRay(vNear, rayInv, iTriangles);
+          //iTriangles.push.apply(iTriangles, iTris);
         }
-        return iTriangles;
+        //return iTriangles;
       }
-      else
-        return this.iTris_;
+      else{
+        iTriangles.push.apply(iTriangles, this.iTris_);
+        //return this.iTris_;
+      }
     }
-    return [];
+    //return [];
   },
 
   /** Return triangles inside a sphere */
@@ -209,7 +214,7 @@ Octree.checkEmptiness = function (leaf, cutLeaves)
     var i = 0;
     for (i = 0; i < 8; ++i)
     {
-      if (child[i].iTris_.length > 0 || child[i].child_[0])
+      if (child[i] && (child[i].iTris_.length > 0 || child[i].child_[0]))
         return;
     }
     cutLeaves.push(parent);
