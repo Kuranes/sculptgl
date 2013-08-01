@@ -15,6 +15,7 @@ var ObjectMemoryPool = function(pooledObjectClassName) {
             return this;
         },
         put: function(obj) {
+          return;
             this._memPool.push(obj);
         },
         get: function() {
@@ -41,6 +42,7 @@ var DataMemoryPool = function (__sizeStart, __type){
 
             // find in allocated pointers.
         free : function (data) {
+          return;
             if (data === undefined || data === null || data === 0)
               return;
             var chunck = null;
@@ -49,11 +51,11 @@ var DataMemoryPool = function (__sizeStart, __type){
                 if(chunck.data === data){
                     this._chunks.splice(i, 1);
                     this._free += data.length;
-                    console.log("Memory Pool free (" + this._type.toString() + "): " + this._free + " / " + this._pool.length + " freed:" + data.length);
+                    //console.log("Memory Pool free (" + this._type.toString() + "): " + this._free + " / " + this._pool.length + " freed:" + data.length);
                     return;
                 }
             }
-            console.log("cannot free: " + data );
+            //console.log("cannot free: " + data );
             if (console.trace) console.trace();
         },
 
@@ -86,20 +88,21 @@ var DataMemoryPool = function (__sizeStart, __type){
                     //Error().stack(newChunck);
                     newChunck.stack = Error().stack;
                     this._free -= n;
-                    console.assert(newChunck.data.length === n);
-                    console.log("Memory Pool malloc (" + this._type.toString() + "): " + this._free + " / " + this._pool.length + " requested:" + newChunck.data.length);
+                   // console.assert(newChunck.data.length === n);
+                   // console.log("Memory Pool malloc (" + this._type.toString() + "): " + this._free + " / " + this._pool.length + " requested:" + newChunck.data.length);
                     return newChunck.data;
                 }
                 allocatedSize += chunck.data.length;
                 biggestChunk = Math.max(biggestChunk, chunck.pos - chunkStart);
                 chunkStart = chunck.pos + chunck.data.length;
             }
-            console.assert(allocatedSize + this._free === this._pool.length);
-
+            //console.assert(allocatedSize + this._free === this._pool.length);
+/*
             if (this._free > n)
               console.log("Memory Pool too fragmented (" + this._type.toString() + "): biggestChunk " + biggestChunk +" requested:" + n);
             else
               console.log("Memory Pool too small (" + this._type.toString() + "): " + this._free + " / " + this._pool.length + " requested:" + n);
+            */
             // didn't find any spot.
             this.resize((this._pool.length + n) * 2);
             return this.malloc(n);

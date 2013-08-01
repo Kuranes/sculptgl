@@ -31,8 +31,6 @@ Mesh.prototype = {
     window.Float32Pool.free(this.normalArray_);
     window.indexArrayTypePool.free(this.indexArray_);
 
-    window.indexPool.free(this.indexArray_);
-
     var vertices = this.vertices_;
     for (var i = 0; i < vertices.length; ++i){
       vertices[i].deInit();

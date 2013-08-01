@@ -37,12 +37,12 @@ function SculptGL()
   this.nPlane_ = [1, 0, 0]; //normal of plane symmetry
 
 
-  window.Float32Pool = new DataMemoryPool(500000*3, Float32Array);
+  window.Float32Pool = new DataMemoryPool(10000000, Float32Array);
 
-  window.AabbPool = new ObjectMemoryPool(Aabb).grow(500000);
-  window.TrianglesPool = new ObjectMemoryPool(Triangle).grow(500000);
-  window.VerticesPool = new ObjectMemoryPool(Vertex).grow(500000);
-  window.OctreePool = new ObjectMemoryPool(Octree).grow(500000);
+  window.AabbPool = new ObjectMemoryPool(Aabb).grow(50000);
+  window.TrianglesPool = new ObjectMemoryPool(Triangle).grow(50000);
+  window.VerticesPool = new ObjectMemoryPool(Vertex).grow(50000);
+  window.OctreePool = new ObjectMemoryPool(Octree).grow(50000);
 
   window.StatePool = new ObjectMemoryPool(State).grow(5);
 

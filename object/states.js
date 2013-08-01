@@ -491,19 +491,20 @@ States.prototype = {
   /** Reset */
   reset: function ()
   {
-    // TODO: GC ?
     this.mesh_ = null;
     var i;
     for (i = 0; i < this.undos_.length; ++i)
     {
       this.undos_[i].deInit();
     }
-    this.undos_.length = 0;
 
     for (i = 0; i < this.redos_.length; ++i)
     {
       this.redos_[i].deInit();
     }
+
+    // TODO: GC ?
+    this.undos_.length = 0;
     this.redos_.length = 0;
     this.curUndoIndex_ = 0;
     this.firstState_ = false;

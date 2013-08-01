@@ -24,4 +24,6 @@ Topology.prototype.init = function(states)
 	this.iTrisToDelete_.length = 0; //triangles to be deleted
 	this.iVertsToDelete_.length = 0; //vertices to be deleted
 	this.iVertsDecimated_.length = 0; //vertices to be updated (mainly for the VBO's, used in decimation and adaptive topo)
+
+	return this;
 }

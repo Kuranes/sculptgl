@@ -29,6 +29,7 @@ Aabb.prototype = {
   {
     var ab = AabbPool.get();
     ab.copy(this);
+    this.dirty_ = true;
     return ab;
   },
 
@@ -36,6 +37,7 @@ Aabb.prototype = {
   copy: function (aabb)
   {
     this.setCopy(aabb.min_, aabb.max_);
+    this.dirty_ = true;
     return this;
   },
 

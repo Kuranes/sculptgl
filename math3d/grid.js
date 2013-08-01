@@ -21,8 +21,7 @@ Grid.prototype = {
     vec3.sub(aabb.min_, aabb.min_, vecShift);
     vec3.add(aabb.max_, aabb.max_, vecShift);
 
-    this.aabb_.deInit();
-    this.aabb_ = aabb;
+    this.aabb_.copy(aabb);
   },
 
   /** Initialize grid */

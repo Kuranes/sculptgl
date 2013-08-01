@@ -88,6 +88,7 @@ Topology.prototype.checkCollisions = function (iVerts, d2Thickness)
 
   var grid = GridPool.get();
   grid.setBoundaries(aabb);
+  aabb.deInit();
   grid.init(Math.sqrt(r2Thickness));
   grid.build(mesh, iVerts);
 

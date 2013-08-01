@@ -107,6 +107,7 @@ Geometry.computeTriangleAabb = function (aabb, v1x, v1y, v1z, v2x, v2y, v2z, v3x
   max[0] = xmax;
   max[1] = ymax;
   max[2] = zmax;
+  aabb.dirty_ = true;
 };
 
 /** Compute from a plane defined by 3 vertices */

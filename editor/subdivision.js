@@ -130,14 +130,20 @@ Topology.prototype.checkArrayLength = function (nbTris)
   if (vAr.length < vLen)
   {
     temp = window.Float32Pool.malloc(vLen * 2);
-    for (i = 0; i < vLen; ++i)
-      temp[i] = vAr[i];
+    //vLen = vAr.length;
+    temp.set(vAr);
+    /*for (i = 0; i < vLen; ++i)
+      temp[i] = vAr[i];*/
     window.Float32Pool.free(this.mesh_.vertexArray_);
     this.mesh_.vertexArray_ = temp;
 
     temp = window.Float32Pool.malloc(vLen * 2);
+    temp.set(nAr);
+    /*
     for (i = 0; i < vLen; ++i)
       temp[i] = nAr[i];
+    */
+
     window.Float32Pool.free(this.mesh_.normalArray_);
     this.mesh_.normalArray_ = temp;
   }
@@ -145,9 +151,10 @@ Topology.prototype.checkArrayLength = function (nbTris)
   if (iAr.length < iLen)
   {
     temp = window.indexArrayTypePool.malloc(iLen * 2);
-    iLen = iAr.length;
-    for (i = 0; i < iLen; ++i)
-      temp[i] = iAr[i];
+    //iLen = iAr.length;
+    temp.set(iAr);
+    /*for (i = 0; i < iLen; ++i)
+      temp[i] = iAr[i];*/
     window.indexArrayTypePool.free(this.mesh_.indexArray_);
     this.mesh_.indexArray_ = temp;
   }

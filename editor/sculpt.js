@@ -101,8 +101,7 @@ Sculpt.prototype = {
     //undo-redo
     this.states_.pushState(iTris, iVertsSelected);
 
-    this.topology_.init(this.states_);
-    var topo = this.topology_;
+    var topo = this.topology_.init(this.states_);
     topo.mesh_ = mesh;
     topo.radiusSquared_ = radiusSquared;
     topo.center_ = center;
