@@ -47,6 +47,7 @@ function SculptGL()
   this.undo_ = this.onUndo; //undo last action
   this.redo_ = this.onRedo; //redo last action
   this.dummyFunc_ = function () {}; //empty function... stupid trick to get a simple button in dat.gui
+  this.lastVerticsCount = 0;
 }
 
 SculptGL.elementIndexType = 0; //element index type (ushort or uint)
@@ -67,6 +68,7 @@ SculptGL.prototype = {
     this.onWindowResize();
     this.loadTextures();
     this.initEvents();
+
   },
 
   /** Initialize */
@@ -349,15 +351,42 @@ SculptGL.prototype = {
     // });
     foldMesh.open();
   },
-
-  /** Render mesh */
-  render: function ()
-  {
+  /** render mesh */
+ doRender: function()
+ {
     var gl = this.gl_;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this.camera_.updateView();
-    if (this.mesh_)
+    if (this.mesh_){
+      this.mesh_.doUpdateBuffers();
       this.mesh_.render(this.camera_, this.picking_);
+      if (this.lastVerticsCount){
+        if (this.mesh_.vertices_.length - this.lastVerticsCount > 1000 ){
+          this.lastVerticsCount = this.mesh_.vertices_.length;
+          this.ctrlNbVertices_.name('Vertices : ' + this.mesh_.vertices_.length);
+          this.ctrlNbTriangles_.name('Triangles : ' + this.mesh_.triangles_.length);
+        }
+      }
+      else{
+        this.lastVerticsCount = this.mesh_.vertices_.length;
+      }
+    }
+
+    this.queued = false;
+
+ },
+  /** request Render mesh */
+  render: function ()
+  {
+    if (!window.requestAnimationFrame){
+      this.doRender();
+      return;
+    }
+    if (this.queued)
+      return;
+    this.queued = true;
+
+    window.requestAnimationFrame(this.doRender.bind(this), $('#canvas')[0]);
   },
 
   /** Called when the window is resized */
@@ -557,9 +586,7 @@ SculptGL.prototype = {
         }
       }
       this.mesh_.updateBuffers();
-      this.ctrlNbVertices_.name('Vertices : ' + this.mesh_.vertices_.length);
-      this.ctrlNbTriangles_.name('Triangles : ' + this.mesh_.triangles_.length);
-    }
+      }
     else if (this.mouseButton_ === 3)
       this.camera_.rotate(mouseX, mouseY);
     else if (this.mouseButton_ === 2)
@@ -704,9 +731,7 @@ SculptGL.prototype = {
     this.ctrlColor_.updateDisplay();
     // this.ctrlShaders_.object = mesh.render_;
     // this.ctrlShaders_.updateDisplay();
-    this.ctrlNbVertices_.name('Vertices : ' + mesh.vertices_.length);
-    this.ctrlNbTriangles_.name('Triangles : ' + mesh.triangles_.length);
-  },
+   },
 
   /** Open file */
   openFile: function ()

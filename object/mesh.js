@@ -236,7 +236,7 @@ Mesh.prototype = {
       j = i * 3;
       aabb.expandsWithPoint(vAr[j], vAr[j + 1], vAr[j + 2]);
     }
-    this.center_ = aabb.computeCenter();
+    vec3.copy(this.center_ ,aabb.computeCenter());
 
     //scale
     var diag = vec3.dist(aabb.min_, aabb.max_);
@@ -251,6 +251,7 @@ Mesh.prototype = {
     mat4.scale(this.matTransform_, this.matTransform_, [scale, scale, scale]);
     vec3.scale(aabb.min_, aabb.min_, scale);
     vec3.scale(aabb.max_, aabb.max_, scale);
+    aabb.dirty_ = true;
     vec3.scale(this.center_, this.center_, scale);
 
     //root octree bigger than minimum aabb...
@@ -281,9 +282,16 @@ Mesh.prototype = {
   },
 
   /** Update the rendering buffers */
+  doUpdateBuffers: function ()
+  {
+    if (this.queued)
+      this.render_.updateBuffers(this.vertexArray_, this.normalArray_, this.indexArray_);
+    this.queued = false;
+  },
+  /** Update the rendering buffers */
   updateBuffers: function ()
   {
-    this.render_.updateBuffers(this.vertexArray_, this.normalArray_, this.indexArray_);
+    this.queued = true;
   },
 
   /** Update geometry  */

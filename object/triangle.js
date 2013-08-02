@@ -18,7 +18,7 @@ Triangle.prototype = {
   clone: function ()
   {
     var t = new Triangle(this.id_);
-    t.normal_ = this.normal_.slice();
+    vec3.copy(t.normal_, this.normal_);
     t.aabb_ = this.aabb_.clone();
     t.leaf_ = this.leaf_;
     t.posInLeaf_ = this.posInLeaf_;
