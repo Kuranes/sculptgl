@@ -10,7 +10,7 @@ function Camera()
   this.width_ = 0; //viewport width
   this.height_ = 0; //viewport height
   this.zoom_ = 20; //zoom value
-  this.transX_ = 0.00001; //translation in x (offset for a very special annoying case a ray casting for picking...)
+  this.transX_ = 0; //translation in x
   this.transY_ = 0; //translation in y
   this.globalScale_ = 1; //solve scale issue
   this.moveX_ = 0; //free look (strafe)
@@ -113,5 +113,30 @@ Camera.prototype = {
     this.transX_ = 0.00001;
     this.transY_ = 0;
     this.globalScale_ = 1;
+  },
+
+  /** Project the mouse coordinate into the world coordinate at a given z */
+  unproject: function (mouseX, mouseY, z)
+  {
+    var height = this.height_;
+    var winx = (2 * mouseX / this.width_) - 1,
+      winy = (height - 2 * mouseY) / height,
+      winz = 2 * z - 1;
+    var n = [winx, winy, winz, 1];
+    var mat = mat4.create();
+    vec4.transformMat4(n, n, mat4.invert(mat, mat4.mul(mat, this.proj_, this.view_)));
+    var w = n[3];
+    return [n[0] / w, n[1] / w, n[2] / w];
+  },
+
+  /** Project a vertex onto the screen */
+  project: function (vector)
+  {
+    var vec = [vector[0], vector[1], vector[2], 1];
+    vec4.transformMat4(vec, vec, this.view_);
+    vec4.transformMat4(vec, vec, this.proj_);
+    var w = vec[3];
+    var height = this.height_;
+    return [(vec[0] / w + 1) * this.width_ * 0.5, height - (vec[1] / w + 1) * height * 0.5, (vec[2] / w + 1) * 0.5];
   }
 };

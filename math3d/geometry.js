@@ -26,10 +26,8 @@ Geometry.intersectionRayTriangle = function (s1, s2, v1, v2, v3, normal, vertInt
   vec3.sub(temp, s1, v1);
   var dist1 = vec3.dot(temp, normal);
   var dist2 = vec3.dot(vec3.sub(temp, s2, v1), normal);
+  //ray copplanar to triangle
   if ((dist1 * dist2) >= 0)
-    return false;
-  //ray parallel to triangle plane
-  if (dist1 === dist2)
     return false;
   //intersection between ray and triangle
   var val = -dist1 / (dist2 - dist1);
@@ -45,41 +43,6 @@ Geometry.intersectionRayTriangle = function (s1, s2, v1, v2, v3, normal, vertInt
   if (vec3.dot(cross, vec3.sub(temp, vertInter, v1)) < 0)
     return false;
   return true;
-};
-
-/** Unproject */
-Geometry.unproject = function (winx, winy, winz, view, proj, width, height)
-{
-  winx = (2 * winx / width) - 1;
-  winy = (2 * winy / height) - 1;
-  winz = (2 * winz) - 1;
-  var n = [winx, winy, winz, 1];
-  var mat = mat4.create();
-  vec4.transformMat4(n, n, mat4.invert(mat, mat4.mul(mat, proj, view)));
-  var w = n[3];
-  return [n[0] / w, n[1] / w, n[2] / w];
-};
-
-/** Project */
-Geometry.project = function (objx, objy, objz, view, proj, width, height)
-{
-  var vec = [objx, objy, objz, 1];
-  vec4.transformMat4(vec, vec, view);
-  vec4.transformMat4(vec, vec, proj);
-  var w = vec[3];
-  return [(vec[0] / w + 1) * width * 0.5, height - (vec[1] / w + 1) * height * 0.5, (vec[2] / w + 1) * 0.5];
-};
-
-/** Project the mouse coordinate into the world coordinate at a given z */
-Geometry.point2Dto3D = function (camera, mouseX, mouseY, z)
-{
-  return Geometry.unproject(mouseX, camera.height_ - mouseY, z, camera.view_, camera.proj_, camera.width_, camera.height_);
-};
-
-/** Project a vertex onto the screen */
-Geometry.point3Dto2D = function (camera, vec)
-{
-  return Geometry.project(vec[0], vec[1], vec[2], camera.view_, camera.proj_, camera.width_, camera.height_);
 };
 
 /** Compute the bounding box of a triangle defined by three vertices */
@@ -195,4 +158,14 @@ Geometry.pointPlaneDistance = function (v, ptPlane, nPlane)
 Geometry.mirrorPoint = function (v, ptPlane, nPlane)
 {
   return vec3.sub(v, v, vec3.scale([0, 0, 0], nPlane, Geometry.pointPlaneDistance(v, ptPlane, nPlane) * 2));
+};
+
+/** Compute the projection of a vertex on a line */
+Geometry.vertexOnLine = function (vertex, vNear, vFar)
+{
+  var ab = [0, 0, 0];
+  vec3.sub(ab, vFar, vNear);
+  var temp = [0, 0, 0];
+  var dot = vec3.dot(ab, vec3.sub(temp, vertex, vNear));
+  return vec3.scaleAndAdd(temp, vNear, ab, dot / vec3.sqrLen(ab));
 };
