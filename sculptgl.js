@@ -1,5 +1,17 @@
 'use strict';
 
+
+(function() {
+    var lastTime = 0;
+    var vendors = ['moz', 'webkit'];// firefox && safari
+    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+    }
+    if (!window.requestAnimationFrame)
+      alert("browser is too old. Probably no webgl there anyway");
+}());
+
+
 function SculptGL()
 {
   this.gl_ = null; //webgl context
@@ -287,7 +299,8 @@ SculptGL.prototype = {
       'Smooth (4)': Sculpt.tool.SMOOTH,
       'Flatten (5)': Sculpt.tool.FLATTEN,
       'Pinch (6)': Sculpt.tool.PINCH,
-      'Crease (7)': Sculpt.tool.CREASE
+      'Crease (7)': Sculpt.tool.CREASE,
+      'Drag (8)': Sculpt.tool.DRAG
     };
     this.ctrlSculpt_ = foldSculpt.add(this.sculpt_, 'tool_', optionsSculpt).name('Tool');
     this.ctrlSculpt_.onChange(function (value)
@@ -452,6 +465,10 @@ SculptGL.prototype = {
     case 103: // NUMPAD 7
       this.ctrlSculpt_.setValue(Sculpt.tool.CREASE);
       break;
+    case 56: // 8
+    case 104: // NUMPAD 8
+      this.ctrlSculpt_.setValue(Sculpt.tool.DRAG);
+      break;
     case 78: // N
       this.ctrlNegative_.setValue(!this.sculpt_.negative_);
       break;
@@ -527,13 +544,7 @@ SculptGL.prototype = {
       if (this.mesh_)
       {
         this.states_.start();
-        if (this.sculpt_.tool_ === Sculpt.tool.ROTATE)
-        {
-          if (this.symmetry_)
-            this.sculpt_.startRotate(this.picking_, mouseX, mouseY, this.pickingSym_, this.ptPlane_, this.nPlane_);
-          else
-            this.sculpt_.startRotate(this.picking_, mouseX, mouseY);
-        }
+        this.sculpt_.startRotate(this.picking_, mouseX, mouseY, this.pickingSym_, this.ptPlane_, this.nPlane_, this.symmetry_);
       }
     }
     else if (button === 3)
@@ -569,31 +580,40 @@ SculptGL.prototype = {
     var pressure = Tablet.pressure();
     var pressureRadius = this.usePenRadius_ ? pressure : 1;
     var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
-    if (this.mesh_ && this.mouseButton_ !== 1)
+    if (this.mesh_ && this.mouseButton_ !== 1){
       this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
+    }
     if (this.mouseButton_ === 1)
     {
-      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE)
+      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE){
         this.sculptStroke(mouseX, mouseY, pressureRadius, pressureIntensity);
+        this.mesh_.updateBuffers();
+        this.render();
+      }
       else if (this.picking_.mesh_)
       {
         this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
-        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, mouseX, mouseY, this.lastMouseX_, this.lastMouseY_);
+        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, false, mouseX, mouseY, this.lastMouseX_, this.lastMouseY_);
+
         if (this.symmetry_)
         {
           this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
-          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, this.lastMouseX_, this.lastMouseY_, mouseX, mouseY, true);
+          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, true, this.lastMouseX_, this.lastMouseY_, mouseX, mouseY);
         }
+        this.mesh_.updateBuffers();
+        this.render();
       }
-      this.mesh_.updateBuffers();
-      }
-    else if (this.mouseButton_ === 3)
+    }
+    else if (this.mouseButton_ === 3){
       this.camera_.rotate(mouseX, mouseY);
-    else if (this.mouseButton_ === 2)
+    this.render();
+    }
+    else if (this.mouseButton_ === 2){
       this.camera_.translate((mouseX - this.lastMouseX_) / 3000, (mouseY - this.lastMouseY_) / 3000);
+    this.render();
+    }
     this.lastMouseX_ = mouseX;
     this.lastMouseY_ = mouseY;
-    this.render();
   },
 
   /** Make a brush stroke */
@@ -616,6 +636,17 @@ SculptGL.prototype = {
     var mesh = this.mesh_;
     var sym = this.symmetry_;
     var sculpt = this.sculpt_;
+    var drag = sculpt.tool_ === Sculpt.tool.DRAG;
+    if (drag)
+    {
+      picking.mesh_ = pickingSym.mesh_ = mesh;
+      var inter = picking.interPoint_;
+      var interSym = pickingSym.interPoint_;
+      interSym[0] = inter[0];
+      interSym[1] = inter[1];
+      interSym[2] = inter[2];
+      Geometry.mirrorPoint(interSym, ptPlane, nPlane);
+    }
     if (this.sumDisplacement_ > minSpacing * 50.0)
       this.sumDisplacement_ = 0;
     else if (this.sumDisplacement_ > minSpacing)
@@ -623,19 +654,28 @@ SculptGL.prototype = {
       this.sumDisplacement_ = 0;
       for (var i = 0; i < dist; i += step)
       {
-        picking.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius);
+        if (drag)
+          sculpt.updateDragDir(mesh, picking, mouseX, mouseY, pressureRadius)
+        else
+          picking.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius);
+
+
         if (!picking.mesh_)
           break;
         picking.pickVerticesInSphere(picking.rWorldSqr_);
         sculpt.sculptMesh(picking, pressureIntensity);
         if (sym)
         {
-          pickingSym.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius, ptPlane, nPlane);
+          if (drag)
+            sculpt.updateDragDir(mesh, pickingSym, mouseX, mouseY, pressureRadius, ptPlane, nPlane);
+          else
+            pickingSym.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius, ptPlane, nPlane);
+
           if (!pickingSym.mesh_)
             break;
           pickingSym.rWorldSqr_ = picking.rWorldSqr_;
           pickingSym.pickVerticesInSphere(pickingSym.rWorldSqr_);
-          sculpt.sculptMesh(pickingSym, pressureIntensity);
+          sculpt.sculptMesh(pickingSym, pressureIntensity, true);
         }
         mouseX += dx * step;
         mouseY += dy * step;
@@ -670,14 +710,19 @@ SculptGL.prototype = {
       return;
     var file = event.target.files[0];
     var name = file.name;
-    if (!name.endsWith('.obj'))
+    if (!name.endsWith('.obj') || !name.endsWith('.stl') )
       return;
     var reader = new FileReader();
     var self = this;
     reader.onload = function (evt)
     {
       self.startMeshLoad();
-      Files.loadOBJ(evt.target.result, self.mesh_);
+
+    if (name.endsWith('.obj'))
+      Files.importOBJ(evt.target.result, self.mesh_);
+    else if (name.endsWith('.stl'))
+      Files.importSTL(evt.target.result, self.mesh_);
+
       self.endMeshLoad();
       $('#fileopen').replaceWith($('#fileopen').clone(true));
     };
@@ -688,7 +733,7 @@ SculptGL.prototype = {
   resetSphere: function ()
   {
     this.startMeshLoad();
-    Files.loadOBJ(this.sphere_, this.mesh_);
+    Files.importOBJ(this.sphere_, this.mesh_);
     this.endMeshLoad();
   },
 
@@ -745,10 +790,12 @@ SculptGL.prototype = {
     if (!this.mesh_)
       return;
     var data = [Files.exportOBJ(this.mesh_)];
+    //var data = [Files.exportSTL(this.mesh_)];
     var blob = new Blob(data,
     {
       type: 'text/plain;charset=utf-8'
     });
+    //saveAs(blob, 'yourMesh.stl');
     saveAs(blob, 'yourMesh.obj');
   },
 
