@@ -14,8 +14,8 @@
   this.gl_ = null; //webgl context
 
   //controllers stuffs
-  this.lastMouseX_ = 0; //the last position of the mouse in x
-  this.lastMouseY_ = 0; //the last position of the mouse in y
+  this.lastPointerX_ = 0; //the last position of the mouse in x
+  this.lastPointerY_ = 0; //the last position of the mouse in y
   this.sumDisplacement_ = 0; //sum of the displacement mouse
   this.mouseButton_ = 0; //which mouse button is pressed
   this.cameraTimer_ = -1; //interval id (used for zqsd/wasd/arrow moves)
@@ -57,6 +57,9 @@
   this.redo_ = this.onRedo; //redo last action
   this.dummyFunc_ = function () {}; //empty function... stupid trick to get a simple button in dat.gui
   this.lastVerticsCount = 0;
+  this.pointerState = new Array(10);
+  for (var i = 0; i < 10; i++)
+    this.pointerState[i] = {active: false, x: -1, y: -1, lastx: -1, lasty: -1};
 }
 
 SculptGL.elementIndexType = 0; //element index type (ushort or uint)
@@ -85,49 +88,21 @@ SculptGL.prototype = {
   {
     var self = this;
     var $canvas = $('#canvas');
-    // mouse
-    $canvas.mousedown(function (event)
-    {
-      self.onMouseDown(event);
-    });
-    $canvas.mouseup(function (event)
-    {
-      self.onMouseUp(event);
-    });
+
+    $canvas[0].addEventListener("pointerdown", this.onPointerDown.bind(this), false);
+    $canvas[0].addEventListener("pointermove", this.onPointerMove.bind(this), false);
+    $canvas[0].addEventListener("pointerup", this.onPointerUp.bind(this), false);
+    $canvas[0].addEventListener("pointerout", this.onPointerOut.bind(this), false);
+
+    $canvas[0].addEventListener("mousedown", this.onMouseDown.bind(this), false);
+    $canvas[0].addEventListener("mouseup", this.onMouseUp.bind(this), false);
+
+    // mouseouseUp(event);
     $canvas.mousewheel(function (event, delta)
     {
       self.onMouseWheel(event, delta);
     });
-    $canvas.mousemove(function (event)
-    {
-      self.onMouseMove(event);
-    });
-    $canvas.mouseout(function (event)
-    {
-      self.onMouseOut(event);
-    });
 
-    // multi touch
-    $canvas.bind('touchstart', function (event)
-    {
-      self.onTouchStart(event);
-    });
-    $canvas.bind('touchend', function (event)
-    {
-      self.onTouchEnd(event);
-    });
-    $canvas.bind('touchmove', function (event)
-    {
-      self.onTouchMove(event);
-    });
-    $canvas.bind('touchleave', function (event)
-    {
-      self.onMouseOut(event);
-    });
-    $canvas.bind('touchcancel', function (event)
-    {
-      self.onMouseOut(event);
-    });
 
     $canvas[0].addEventListener('webglcontextlost', self.onContextLost, false);
     $canvas[0].addEventListener('webglcontextrestored', self.onContextRestored, false);
@@ -555,39 +530,148 @@ SculptGL.prototype = {
       this.cameraTimer_ = -1;
     }
   },
+  onMouseDown: function(evt) {
+    var  stateChg = true;
+    switch(evt.which){
+      case 1:this.pointerState[1].active = stateChg;break;
+      case 2:this.pointerState[3].active = stateChg;break;
+      case 3:this.pointerState[2].active = stateChg;break;
+    }
 
-  /** Mouse pressed event */
-  onMouseDown: function (event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
-    var mouseX = event.pageX,
-      mouseY = event.pageY;
-    this.mouseButton_ = event.which;
-    var button = event.which;
-    if (button === 1)
+  },
+  onMouseUp: function(evt) {
+    var  stateChg = false;
+    switch(evt.which){
+      case 1:this.pointerState[1].active = stateChg;break;
+      case 2:this.pointerState[3].active = stateChg;break;
+      case 3:this.pointerState[2].active = stateChg;break;
+    }
+  },
+
+  onPointerDown: function(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var pointers = evt.getPointerList();
+    for (var i = 0; i < pointers.length; i++){
+      var ptr = pointers[i];
+      var state = this.pointerState[ptr.identifier ];
+      if (ptr.pointerType !== "mouse")
+        state.active = true;
+      state.lastx = state.x;
+      state.lasty = state.y;
+      state.x = ptr.pageX;
+      state.y = ptr.pageY;
+    }
+
+    var x =   this.pointerState[1].x,
+      y = this.pointerState[1].y;
+
+
+    if (this.pointerState[2].active && this.pointerState[1].active && !this.pointerState[3].active) {
+      // 2 finger swipe or button 2/3 action move user
+      this.camera_.start(x, y);
+    }
+    else if (this.pointerState[1].active)
     {
       if (this.mesh_)
       {
         this.states_.start();
-        this.sculpt_.startRotate(this.picking_, mouseX, mouseY, this.pickingSym_, this.ptPlane_, this.nPlane_, this.symmetry_);
+        this.sculpt_.startRotate(this.picking_, x, y, this.pickingSym_, this.ptPlane_, this.nPlane_, this.symmetry_);
       }
     }
-    else if (button === 3)
-      this.camera_.start(mouseX, mouseY);
+  },
+  onPointerUp: function(evt){
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var pointers = evt.getPointerList();
+    for (var i = 0; i < pointers.length; i++){
+      var ptr = pointers[i];
+      var state = this.pointerState[ptr.identifier ];
+      if (ptr.pointerType !== "mouse")
+        state.active = false;
+      state.lastx = state.x;
+      state.lasty = state.y;
+      state.x = ptr.pageX;
+      state.y = ptr.pageY;
+    }
+
+    if (!this.pointerState[1].active){
+      if (this.mesh_)
+        this.mesh_.checkLeavesUpdate();
+    }
+  },
+  onPointerMove: function(evt){
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    var pointers = evt.getPointerList();
+    for (var i = 0; i < pointers.length; i++){
+      var ptr = pointers[i];
+      var state = this.pointerState[ptr.identifier];
+      state.lastx = state.x;
+      state.lasty = state.y;
+      state.x = ptr.pageX;
+      state.y = ptr.pageY;
+    }
+
+    var x =   this.pointerState[1].x,
+      y = this.pointerState[1].y,
+      lastx = this.pointerState[1].lastx,
+      lasty = this.pointerState[1].lasty;
+
+    var pressure = Tablet.pressure();
+    var pressureRadius = this.usePenRadius_ ? pressure : 1;
+    var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
+    if (this.mesh_ && !this.pointerState[1].active){
+      this.picking_.intersectionMouseMesh(this.mesh_, x, y, pressureRadius);
+    }
+
+
+    if (this.pointerState[3].active){
+      // zoom
+      //this.camera_.zoom(delta / 100);
+      //this.render();
+      this.camera_.translate((x - lastx) / 3000, (y - lasty) / 3000);
+    }
+    else if (this.pointerState[2].active){
+      // rotate
+      this.camera_.rotate(x, y);
+    }
+    else if (this.pointerState[1].active){
+      // user action
+
+      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE){
+        this.sculptStroke(x, y, pressureRadius, pressureIntensity);
+        this.mesh_.updateBuffers();
+      }
+      else if (this.picking_.mesh_)
+      {
+        this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
+        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, false, x, y, lastx, lasty);
+
+        if (this.symmetry_)
+        {
+          this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
+          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, true, lastx, lasty, x, y);
+        }
+        this.mesh_.updateBuffers();
+      }
+    }
+    this.lastPointerX_ = x;
+    this.lastPointerY_ = y;
+    this.render();
   },
 
-  /** Mouse released event */
-  onMouseUp: function (event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
+  onPointerOut: function(evt){
+    evt.stopPropagation();
+    evt.preventDefault();
+
     if (this.mesh_)
       this.mesh_.checkLeavesUpdate();
-    this.mouseButton_ = 0;
   },
-
-  /** Mouse wheel event */
+  /// Mouse wheel event
   onMouseWheel: function (event, delta)
   {
     event.stopPropagation();
@@ -596,142 +680,7 @@ SculptGL.prototype = {
     this.render();
   },
 
-  /** Mouse move event */
-  onMouseMove: function (event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
-    var mouseX = event.pageX,
-      mouseY = event.pageY;
-    var pressure = Tablet.pressure();
-    var pressureRadius = this.usePenRadius_ ? pressure : 1;
-    var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
-    if (this.mesh_ && this.mouseButton_ !== 1){
-      this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
-    }
-    if (this.mouseButton_ === 1)
-    {
-      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE){
-        this.sculptStroke(mouseX, mouseY, pressureRadius, pressureIntensity);
-        this.mesh_.updateBuffers();
-        this.render();
-      }
-      else if (this.picking_.mesh_)
-      {
-        this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
-        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, false, mouseX, mouseY, this.lastMouseX_, this.lastMouseY_);
 
-        if (this.symmetry_)
-        {
-          this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
-          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, true, this.lastMouseX_, this.lastMouseY_, mouseX, mouseY);
-        }
-        this.mesh_.updateBuffers();
-        this.render();
-      }
-    }
-    else if (this.mouseButton_ === 3){
-      this.camera_.rotate(mouseX, mouseY);
-    this.render();
-    }
-    else if (this.mouseButton_ === 2){
-      this.camera_.translate((mouseX - this.lastMouseX_) / 3000, (mouseY - this.lastMouseY_) / 3000);
-    this.render();
-    }
-    this.lastMouseX_ = mouseX;
-    this.lastMouseY_ = mouseY;
-  },
-
-
-  /** touch start event */
-  onTouchStart: function (event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
-    var touches = event.originalEvent.targetTouches;
-    /*for (var i = 0; i < touches; i) {
-        var touch = touches[i];
-        console.log('touched '  touch.identifier);
-    }*/
-
-    event.stopPropagation();
-    event.preventDefault();
-    var mouseX = touches[0].pageX,
-      mouseY = touches[0].pageY;
-    this.mouseButton_ = touches.length;
-    var button = touches.length;
-    if (button === 1)
-    {
-      if (this.mesh_)
-      {
-        this.states_.start();
-        if (this.sculpt_.tool_ === Sculpt.tool.ROTATE)
-        {
-          if (this.symmetry_)
-            this.sculpt_.startRotate(this.picking_, mouseX, mouseY, this.pickingSym_, this.ptPlane_, this.nPlane_);
-          else
-            this.sculpt_.startRotate(this.picking_, mouseX, mouseY);
-        }
-      }
-    }
-    else if (button === 3)
-      this.camera_.start(mouseX, mouseY);
-  },
-
-  /** touch end event */
-  onTouchEnd: function (event)
-  {
-    event.stopPropagation();
-    event.preventDefault();
-    if (this.mesh_)
-      this.mesh_.checkLeavesUpdate();
-    this.mouseButton_ = 0;
-  },
-
-  /** touch move event */
-  onTouchMove: function (event, delta)
-  {
-    var touches = event.originalEvent.targetTouches;
-    /*for (var i = 0; i < touches; i) {
-        var touch = touches[i];
-        console.log('touched '  touch.identifier);
-    }*/
-
-    event.stopPropagation();
-    event.preventDefault();
-    var mouseX = touches[0].pageX,
-      mouseY = touches[0].pageY;
-    var pressure = Tablet.pressure();
-    var pressureRadius = this.usePenRadius_ ? pressure : 1;
-    var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
-    if (this.mesh_ && this.mouseButton_ !== 1)
-      this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
-    if (touches.length === 1)
-    {
-      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE)
-        this.sculptStroke(mouseX, mouseY, pressureRadius, pressureIntensity);
-      else if (this.picking_.mesh_)
-      {
-        this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
-        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, mouseX, mouseY, this.lastMouseX_, this.lastMouseY_);
-        if (this.symmetry_)
-        {
-          this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
-          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, this.lastMouseX_, this.lastMouseY_, mouseX, mouseY, true);
-        }
-      }
-      this.mesh_.updateBuffers();
-    }
-    else if (touches.length === 3){
-      this.camera_.rotate(mouseX, mouseY);
-    }
-    else if (touches.length === 2){
-      this.camera_.translate((mouseX - this.lastMouseX_) / 3000, (mouseY - this.lastMouseY_) / 3000);
-    }
-    this.lastMouseX_ = mouseX;
-    this.lastMouseY_ = mouseY;
-    this.render();
-  },
   /** Make a brush stroke */
   sculptStroke: function (mouseX, mouseY, pressureRadius, pressureIntensity)
   {
@@ -739,16 +688,16 @@ SculptGL.prototype = {
       nPlane = this.nPlane_;
     var picking = this.picking_,
       pickingSym = this.pickingSym_;
-    var dx = mouseX - this.lastMouseX_,
-      dy = mouseY - this.lastMouseY_;
+    var dx = mouseX - this.lastPointerX_,
+      dy = mouseY - this.lastPointerY_;
     var dist = Math.sqrt(dx * dx + dy * dy);
     this.sumDisplacement_ += dist;
     var minSpacing = 0.2 * picking.rDisplay_;
     var step = dist / Math.floor(dist / minSpacing);
     dx /= dist;
     dy /= dist;
-    mouseX = this.lastMouseX_;
-    mouseY = this.lastMouseY_;
+    mouseX = this.lastPointerX_;
+    mouseY = this.lastPointerY_;
     var mesh = this.mesh_;
     var sym = this.symmetry_;
     var sculpt = this.sculpt_;
