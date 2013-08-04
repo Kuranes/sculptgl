@@ -9,7 +9,10 @@
     }
     if (!window.requestAnimationFrame)
       alert("browser is too old. Probably no webgl there anyway");
-}());function SculptGL()
+}());
+
+
+function SculptGL()
 {
   this.gl_ = null; //webgl context
 
@@ -93,14 +96,15 @@ SculptGL.prototype = {
   {
     var self = this;
     var $canvas = $('#canvas');
+    var canvasEl = $canvas[0];
 
-    $canvas[0].addEventListener("mousedown", this.onMouseDown.bind(this), false);
-    $canvas[0].addEventListener("mouseup", this.onMouseUp.bind(this), false);
+    canvasEl.addEventListener("mousedown", this.onMouseDown.bind(this), false);
+    canvasEl.addEventListener("mouseup", this.onMouseUp.bind(this), false);
 
-    $canvas[0].addEventListener("pointerdown", this.onPointerDown.bind(this), false);
-    $canvas[0].addEventListener("pointermove", this.onPointerMove.bind(this), false);
-    $canvas[0].addEventListener("pointerup", this.onPointerUp.bind(this), false);
-    $canvas[0].addEventListener("pointerout", this.onPointerOut.bind(this), false);
+    canvasEl.addEventListener("pointerdown", this.onPointerDown.bind(this), false);
+    canvasEl.addEventListener("pointermove", this.onPointerMove.bind(this), false);
+    canvasEl.addEventListener("pointerup", this.onPointerUp.bind(this), false);
+    canvasEl.addEventListener("pointerout", this.onPointerOut.bind(this), false);
 
 
     // mouseouseUp(event);
@@ -108,6 +112,21 @@ SculptGL.prototype = {
     {
       self.onMouseWheel(event, delta);
     });
+
+    canvasEl.addEventListener('gesturescale', function(e) {
+      log('scale: ' + e.scale);
+      self.onMouseWheel(event, e.scale);
+    });
+
+   canvasEl.addEventListener('gesturedoubletap', function() {
+      console.log('doubletap');
+    });
+
+    canvasEl.addEventListener('gesturelongpress', function() {
+      console.log('longpress');
+    });
+
+
 
 
     $canvas[0].addEventListener('webglcontextlost', self.onContextLost, false);
@@ -160,8 +179,8 @@ SculptGL.prototype = {
         SculptGL.elementIndexType = gl.UNSIGNED_SHORT;
         SculptGL.indexArrayType = Uint16Array;
       }
-      gl.viewportWidth = $(window).width();
-      gl.viewportHeight = $(window).height();
+      gl.viewportWidth = $(canvas).width();
+      gl.viewportHeight = $(canvas).height();
       gl.clearColor(0.2, 0.2, 0.2, 1);
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LEQUAL);
@@ -410,6 +429,7 @@ SculptGL.prototype = {
 
     window.requestAnimationFrame(this.doRender.bind(this), $('#canvas')[0]);
   },
+
 
   /** Called when the window is resized */
   onWindowResize: function ()
@@ -661,7 +681,7 @@ SculptGL.prototype = {
 
     var tool = this.sculpt_.tool_;
     if (this.mesh_ && (!this.pointerState[1].active || (tool !== Sculpt.tool.ROTATE && tool !== Sculpt.tool.DRAG)))
-       this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
+       this.picking_.intersectionMouseMesh(this.mesh_, pointerX, pointerY, pressureRadius);
 
 
     if (this.continuous_ && this.sculptTimer_ !== -1)
