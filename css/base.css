@@ -209,7 +209,7 @@ html, body {
     #gui-container .dg .folder + .folder {
       margin-top: 10px; }
     #gui-container .dg select {
-      background: #333333 url("/ressources/select-icon.png") no-repeat 120px center;
+      background: #333333 url("../ressources/select-icon.png") no-repeat 120px center;
       -webkit-appearance: none;
       -ms-appearance: none;
       -moz-appearance: none;

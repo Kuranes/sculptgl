@@ -17,13 +17,18 @@
   this.lastPointerX_ = 0; //the last position of the mouse in x
   this.lastPointerY_ = 0; //the last position of the mouse in y
   this.sumDisplacement_ = 0; //sum of the displacement mouse
-  this.mouseButton_ = 0; //which mouse button is pressed
   this.cameraTimer_ = -1; //interval id (used for zqsd/wasd/arrow moves)
   this.usePenRadius_ = true; //the pen pressure acts on the tool's radius
   this.usePenIntensity_ = false; //the pen pressure acts on the tool's intensity
 
   //symmetry stuffs
   this.symmetry_ = false; //if symmetric sculpting is enabled
+  this.continuous_ = false; //continuous sculpting
+  this.sculptTimer_ = -1; //continuous interval timer
+  this.pressureRadius_ = 0; //for continuous sculpting
+  this.pressureIntensity_ = 0; //for continuous sculpting
+  this.pointerX_ = 0; //for continuous sculpting
+  this.pointerY_ = 0; //for continuous sculpting
   this.ptPlane_ = [0, 0, 0]; //point origin of the plane symmetry
   this.nPlane_ = [1, 0, 0]; //normal of plane symmetry
 
@@ -89,13 +94,14 @@ SculptGL.prototype = {
     var self = this;
     var $canvas = $('#canvas');
 
+    $canvas[0].addEventListener("mousedown", this.onMouseDown.bind(this), false);
+    $canvas[0].addEventListener("mouseup", this.onMouseUp.bind(this), false);
+
     $canvas[0].addEventListener("pointerdown", this.onPointerDown.bind(this), false);
     $canvas[0].addEventListener("pointermove", this.onPointerMove.bind(this), false);
     $canvas[0].addEventListener("pointerup", this.onPointerUp.bind(this), false);
     $canvas[0].addEventListener("pointerout", this.onPointerOut.bind(this), false);
 
-    $canvas[0].addEventListener("mousedown", this.onMouseDown.bind(this), false);
-    $canvas[0].addEventListener("mouseup", this.onMouseUp.bind(this), false);
 
     // mouseouseUp(event);
     $canvas.mousewheel(function (event, delta)
@@ -309,6 +315,7 @@ SculptGL.prototype = {
       self.sculpt_.tool_ = parseInt(value, 10);
     });
     this.ctrlNegative_ = foldSculpt.add(this.sculpt_, 'negative_').name('Negative (N)');
+    foldSculpt.add(this, 'continuous_').name('Continuous');
     foldSculpt.add(this, 'symmetry_').name('Symmetry');
     foldSculpt.add(this.sculpt_, 'culling_').name('Sculpt culling');
     foldSculpt.add(this.picking_, 'rDisplay_', 20, 200).name('Radius');
@@ -331,6 +338,7 @@ SculptGL.prototype = {
     });
     foldTopo.add(this.sculpt_, 'detail_', 0, 1).name('Detail');
     foldTopo.open();
+
 
     //mesh fold
     var foldMesh = gui.addFolder('Mesh');
@@ -564,20 +572,40 @@ SculptGL.prototype = {
       state.y = ptr.pageY;
     }
 
-    var x =   this.pointerState[1].x,
-      y = this.pointerState[1].y;
+    var pointerX =   this.pointerState[1].x,
+      pointerY = this.pointerState[1].y;
 
+    var pressure = Tablet.pressure();
+    var pressureRadius = this.usePenRadius_ ? pressure : 1;
+    var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
 
-    if (this.pointerState[2].active && this.pointerState[1].active && !this.pointerState[3].active) {
+    if (this.pointerState[2].active) {
       // 2 finger swipe or button 2/3 action move user
-      this.camera_.start(x, y);
+      this.camera_.start(pointerX, pointerY);
     }
     else if (this.pointerState[1].active)
     {
       if (this.mesh_)
       {
+        this.sumDisplacement_ = 0;
         this.states_.start();
-        this.sculpt_.startRotate(this.picking_, x, y, this.pickingSym_, this.ptPlane_, this.nPlane_, this.symmetry_);
+        if (this.sculpt_.tool_ === Sculpt.tool.ROTATE)
+          this.sculpt_.startRotate(this.picking_, pointerX, pointerY, this.pickingSym_, this.ptPlane_, this.nPlane_, this.symmetry_);
+        else if (this.continuous_ && this.sculpt_.tool_ !== Sculpt.tool.DRAG)
+        {
+          this.pressureRadius_ = pressureRadius;
+          this.pressureIntensity_ = pressureIntensity;
+          this.pointerX_ = pointerX;
+          this.pointerY_ = pointerY;
+          var self = this;
+          this.sculptTimer_ = setInterval(function ()
+          {
+            self.sculptStroke(self.pointerX_, self.pointerY_, self.pressureRadius_, self.pressureIntensity_);
+            self.render();
+          }, 20);
+        }
+        else
+          this.sculptStroke(pointerX, pointerY, pressureRadius, pressureIntensity);
       }
     }
   },
@@ -591,17 +619,23 @@ SculptGL.prototype = {
       var state = this.pointerState[ptr.identifier ];
       if (ptr.pointerType !== "mouse")
         state.active = false;
-      state.lastx = state.x;
-      state.lasty = state.y;
-      state.x = ptr.pageX;
-      state.y = ptr.pageY;
+        state.lastx = state.x;
+        state.lasty = state.y;
+        state.x = ptr.pageX;
+        state.y = ptr.pageY;
     }
 
-    if (!this.pointerState[1].active){
+   // if (!this.pointerState[1].active){
       if (this.mesh_)
         this.mesh_.checkLeavesUpdate();
-    }
+      if (this.sculptTimer_ !== -1)
+      {
+        clearInterval(this.sculptTimer_);
+        this.sculptTimer_ = -1;
+      }
+    //}
   },
+
   onPointerMove: function(evt){
     evt.stopPropagation();
     evt.preventDefault();
@@ -616,51 +650,59 @@ SculptGL.prototype = {
       state.y = ptr.pageY;
     }
 
-    var x =   this.pointerState[1].x,
-      y = this.pointerState[1].y,
-      lastx = this.pointerState[1].lastx,
-      lasty = this.pointerState[1].lasty;
+    var pointerX =   this.pointerState[1].x,
+      pointerY = this.pointerState[1].y,
+      lastPointerX = this.pointerState[1].lastx,
+      lastPointerY = this.pointerState[1].lasty;
 
     var pressure = Tablet.pressure();
     var pressureRadius = this.usePenRadius_ ? pressure : 1;
     var pressureIntensity = this.usePenIntensity_ ? pressure : 1;
-    if (this.mesh_ && !this.pointerState[1].active){
-      this.picking_.intersectionMouseMesh(this.mesh_, x, y, pressureRadius);
+
+    var tool = this.sculpt_.tool_;
+    if (this.mesh_ && (!this.pointerState[1].active || (tool !== Sculpt.tool.ROTATE && tool !== Sculpt.tool.DRAG)))
+       this.picking_.intersectionMouseMesh(this.mesh_, mouseX, mouseY, pressureRadius);
+
+
+    if (this.continuous_ && this.sculptTimer_ !== -1)
+    {
+      this.pressureRadius_ = pressureRadius;
+      this.pressureIntensity_ = pressureIntensity;
+      this.pointerX_ = pointerX;
+      this.pointerY_ = pointerY;
+      return;
     }
 
-
     if (this.pointerState[3].active){
-      // zoom
-      //this.camera_.zoom(delta / 100);
-      //this.render();
-      this.camera_.translate((x - lastx) / 3000, (y - lasty) / 3000);
+      this.camera_.translate((pointerX - lastPointerX) / 3000, (pointerY - lastPointerY) / 3000);
     }
     else if (this.pointerState[2].active){
       // rotate
-      this.camera_.rotate(x, y);
+      this.camera_.rotate(pointerX, pointerY);
     }
     else if (this.pointerState[1].active){
       // user action
 
-      if (this.sculpt_.tool_ !== Sculpt.tool.ROTATE){
-        this.sculptStroke(x, y, pressureRadius, pressureIntensity);
+      if (tool !== Sculpt.tool.ROTATE){
+        this.sculptStroke(pointerX, pointerY, pressureRadius, pressureIntensity);
         this.mesh_.updateBuffers();
       }
       else if (this.picking_.mesh_)
       {
         this.picking_.pickVerticesInSphere(this.picking_.rWorldSqr_);
-        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, false, x, y, lastx, lasty);
+        this.sculpt_.sculptMesh(this.picking_, pressureIntensity, false, pointerX, pointerY, lastPointerX, lastPointerY);
 
         if (this.symmetry_)
         {
           this.pickingSym_.pickVerticesInSphere(this.pickingSym_.rWorldSqr_);
-          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, true, lastx, lasty, x, y);
+          this.sculpt_.sculptMesh(this.pickingSym_, pressureIntensity, true, lastPointerX, lastPointerY, pointerX, pointerY);
         }
         this.mesh_.updateBuffers();
       }
     }
-    this.lastPointerX_ = x;
-    this.lastPointerY_ = y;
+      //this.render();
+    this.lastPointerX_ = pointerX;
+    this.lastPointerY_ = pointerY;
     this.render();
   },
 
@@ -668,8 +710,18 @@ SculptGL.prototype = {
     evt.stopPropagation();
     evt.preventDefault();
 
+    for (var i = 0; i < this.pointerState.length; i++){
+        var state = this.pointerState[i];
+        state.active = false;
+    }
+
     if (this.mesh_)
       this.mesh_.checkLeavesUpdate();
+    if (this.sculptTimer_ !== -1)
+    {
+      clearInterval(this.sculptTimer_);
+      this.sculptTimer_ = -1;
+    }
   },
   /// Mouse wheel event
   onMouseWheel: function (event, delta)
@@ -682,28 +734,39 @@ SculptGL.prototype = {
 
 
   /** Make a brush stroke */
-  sculptStroke: function (mouseX, mouseY, pressureRadius, pressureIntensity)
+  sculptStroke: function (pointerX, pointerY, pressureRadius, pressureIntensity)
   {
     var ptPlane = this.ptPlane_,
       nPlane = this.nPlane_;
     var picking = this.picking_,
       pickingSym = this.pickingSym_;
-    var dx = mouseX - this.lastPointerX_,
-      dy = mouseY - this.lastPointerY_;
+    var dx = pointerX - this.lastPointerX_,
+      dy = pointerY - this.lastPointerY_;
     var dist = Math.sqrt(dx * dx + dy * dy);
     this.sumDisplacement_ += dist;
     var minSpacing = 0.2 * picking.rDisplay_;
     var step = dist / Math.floor(dist / minSpacing);
     dx /= dist;
     dy /= dist;
-    mouseX = this.lastPointerX_;
-    mouseY = this.lastPointerY_;
+
+    if (!this.continuous_)
+    {
+     pointerX = this.lastPointerX_;
+    pointerY = this.lastPointerY_;
+
+    }
+    else
+    {
+      this.sumDisplacement_ = 0;
+      dist = 0;
+    }
     var mesh = this.mesh_;
     var sym = this.symmetry_;
     var sculpt = this.sculpt_;
     var drag = sculpt.tool_ === Sculpt.tool.DRAG;
     if (drag)
     {
+      minSpacing = 0.0;
       picking.mesh_ = pickingSym.mesh_ = mesh;
       var inter = picking.interPoint_;
       var interSym = pickingSym.interPoint_;
@@ -714,15 +777,15 @@ SculptGL.prototype = {
     }
     if (this.sumDisplacement_ > minSpacing * 50.0)
       this.sumDisplacement_ = 0;
-    else if (this.sumDisplacement_ > minSpacing)
+    else if (this.sumDisplacement_ > minSpacing || this.sumDisplacement_ === 0)
     {
       this.sumDisplacement_ = 0;
-      for (var i = 0; i < dist; i += step)
+      for (var i = 0; i <= dist; i += step)
       {
         if (drag)
-          sculpt.updateDragDir(mesh, picking, mouseX, mouseY, pressureRadius)
+          sculpt.updateDragDir(mesh, picking, pointerX, pointerY, pressureRadius);
         else
-          picking.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius);
+          picking.intersectionMouseMesh(mesh, pointerX, pointerY, pressureRadius);
 
 
         if (!picking.mesh_)
@@ -732,9 +795,9 @@ SculptGL.prototype = {
         if (sym)
         {
           if (drag)
-            sculpt.updateDragDir(mesh, pickingSym, mouseX, mouseY, pressureRadius, ptPlane, nPlane);
+            sculpt.updateDragDir(mesh, pickingSym, pointerX, pointerY, pressureRadius, ptPlane, nPlane);
           else
-            pickingSym.intersectionMouseMesh(mesh, mouseX, mouseY, pressureRadius, ptPlane, nPlane);
+            pickingSym.intersectionMouseMesh(mesh, pointerX, pointerY, pressureRadius, ptPlane, nPlane);
 
           if (!pickingSym.mesh_)
             break;
@@ -742,16 +805,11 @@ SculptGL.prototype = {
           pickingSym.pickVerticesInSphere(pickingSym.rWorldSqr_);
           sculpt.sculptMesh(pickingSym, pressureIntensity, true);
         }
-        mouseX += dx * step;
-        mouseY += dy * step;
+        pointerX += dx * step;
+        pointerY += dy * step;
       }
+      this.mesh_.updateBuffers();
     }
-  },
-
-  /** Mouse out event */
-  onMouseOut: function ()
-  {
-    this.mouseButton_ = 0;
   },
 
   /** WebGL context is lost */
